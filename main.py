@@ -127,7 +127,7 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     user = update.effective_user
     await update.message.reply_text(
         f"👋 Welcome to *Nandi AI*, {user.first_name}!\n"
-        "I'm your AI assistant powered by Groq.\n\n"
+        "I'm your AI assistant developed by Animesh Nandi.\n\n"
         "Just send me any message and I'll reply using AI.",
         parse_mode="Markdown",
     )
