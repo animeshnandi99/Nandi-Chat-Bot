@@ -6,7 +6,7 @@ Developer: Animesh Nandi
 import os
 import logging
 from groq import Groq
-from telegram import Update
+from telegram import Update, BotCommand
 from telegram.constants import ChatAction
 from telegram.ext import (
     Application,
@@ -124,14 +124,64 @@ async def get_ai_response(user_id: int, user_message: str) -> str:
 
 async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle the /start command."""
-    welcome_message = (
-        "👋 Welcome to Nandi AI!\n"
-        "Send me any message and I'll answer using AI.\n\n"
-        "📋 Commands:\n"
-        "  /model — view & switch AI models\n"
-        "  /start — show this message"
+    user = update.effective_user
+    await update.message.reply_text(
+        f"👋 Welcome to *Nandi AI*, {user.first_name}!\n"
+        "I'm your AI assistant powered by Groq.\n\n"
+        "Just send me any message and I'll reply using AI.\n"
+        "Tap the *menu button* (/) below to see all commands.",
+        parse_mode="Markdown",
     )
-    await update.message.reply_text(welcome_message)
+
+
+async def help_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle the /help command — show full command reference."""
+    await update.message.reply_text(
+        "🆘 *Nandi AI — Help*\n\n"
+        "*Commands:*\n"
+        "  /start — Welcome message\n"
+        "  /help — Show this help menu\n"
+        "  /model — View & switch AI models\n"
+        "  /status — Show your current settings\n"
+        "  /clear — Clear your conversation history\n\n"
+        "*How to use:*\n"
+        "Simply type any question or message and I'll respond using AI. "
+        "I remember your conversation history during the session so you can ask follow-up questions naturally.\n\n"
+        "*Switching models:*\n"
+        "Use `/model 1` for the powerful 70B model or `/model 2` for the fast 8B model.\n\n"
+        "*Developer:* Animesh Nandi",
+        parse_mode="Markdown",
+    )
+
+
+async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle the /status command — show current model and history size."""
+    user_id = update.effective_user.id
+    model_key = get_model_key(user_id)
+    model = MODELS[model_key]
+    history_count = len(get_history(user_id))
+    msg_word = "message" if history_count == 1 else "messages"
+
+    await update.message.reply_text(
+        "📊 *Your Current Status*\n\n"
+        f"🤖 *Model:* {model['label']}\n"
+        f"   _{model['description']}_\n\n"
+        f"💬 *Conversation history:* {history_count} {msg_word}\n"
+        f"   _(max {MAX_HISTORY} kept in memory)_\n\n"
+        "Use /model to switch models or /clear to reset history.",
+        parse_mode="Markdown",
+    )
+
+
+async def clear_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle the /clear command — wipe the user's conversation history."""
+    user_id = update.effective_user.id
+    conversation_histories[user_id] = []
+    await update.message.reply_text(
+        "🗑️ Conversation history cleared!\n"
+        "Let's start fresh — what's on your mind?"
+    )
+    logger.info("User %d cleared their conversation history.", user_id)
 
 
 async def model_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -201,17 +251,40 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
     logger.error("Unhandled exception: %s", context.error, exc_info=context.error)
 
 
+# ─── Bot Menu Registration ─────────────────────────────────────────────────────
+
+async def post_init(application: Application) -> None:
+    """Register commands with Telegram so they appear in the / menu."""
+    commands = [
+        BotCommand("start",  "👋 Welcome message"),
+        BotCommand("help",   "🆘 Show all commands & usage guide"),
+        BotCommand("model",  "🤖 View or switch AI model"),
+        BotCommand("status", "📊 Show current model & history info"),
+        BotCommand("clear",  "🗑️ Clear conversation history"),
+    ]
+    await application.bot.set_my_commands(commands)
+    logger.info("Bot command menu registered.")
+
+
 # ─── Entry Point ──────────────────────────────────────────────────────────────
 
 def main() -> None:
     """Start the bot using long polling."""
     logger.info("Starting Nandi AI bot...")
 
-    app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
+    app = (
+        Application.builder()
+        .token(TELEGRAM_BOT_TOKEN)
+        .post_init(post_init)   # registers the / menu on startup
+        .build()
+    )
 
     # Register handlers
-    app.add_handler(CommandHandler("start", start_handler))
-    app.add_handler(CommandHandler("model", model_handler))
+    app.add_handler(CommandHandler("start",  start_handler))
+    app.add_handler(CommandHandler("help",   help_handler))
+    app.add_handler(CommandHandler("model",  model_handler))
+    app.add_handler(CommandHandler("status", status_handler))
+    app.add_handler(CommandHandler("clear",  clear_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message_handler))
     app.add_error_handler(error_handler)
 
