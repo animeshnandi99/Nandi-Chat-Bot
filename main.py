@@ -1,0 +1,152 @@
+"""
+Nandi AI - Telegram Bot powered by Groq AI
+Developer: Animesh Nandi
+"""
+
+import os
+import logging
+from groq import Groq
+from telegram import Update
+from telegram.constants import ChatAction
+from telegram.ext import (
+    Application,
+    CommandHandler,
+    MessageHandler,
+    ContextTypes,
+    filters,
+)
+
+# ─── Logging ──────────────────────────────────────────────────────────────────
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=logging.INFO,
+)
+logger = logging.getLogger(__name__)
+
+# ─── Configuration ────────────────────────────────────────────────────────────
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
+
+if not TELEGRAM_BOT_TOKEN:
+    raise EnvironmentError("TELEGRAM_BOT_TOKEN is not set. Add it to your Secrets.")
+if not GROQ_API_KEY:
+    raise EnvironmentError("GROQ_API_KEY is not set. Add it to your Secrets.")
+
+# ─── Groq Client ──────────────────────────────────────────────────────────────
+groq_client = Groq(api_key=GROQ_API_KEY)
+
+# ─── In-memory conversation history per user ──────────────────────────────────
+# Format: { user_id: [ {"role": "user"|"assistant", "content": "..."}, ... ] }
+conversation_histories: dict[int, list[dict]] = {}
+
+SYSTEM_PROMPT = (
+    "You are Nandi AI, a helpful and friendly AI assistant built inside Telegram. "
+    "You are created by Animesh Nandi. "
+    "Answer questions clearly, concisely, and helpfully. "
+    "When code is involved, use proper formatting."
+)
+
+MAX_HISTORY = 20  # Maximum number of messages to keep per user
+
+
+def get_history(user_id: int) -> list[dict]:
+    """Return the conversation history for a user, initialising if needed."""
+    if user_id not in conversation_histories:
+        conversation_histories[user_id] = []
+    return conversation_histories[user_id]
+
+
+def trim_history(user_id: int) -> None:
+    """Keep history within MAX_HISTORY messages to avoid token overflow."""
+    history = conversation_histories.get(user_id, [])
+    if len(history) > MAX_HISTORY:
+        conversation_histories[user_id] = history[-MAX_HISTORY:]
+
+
+async def get_ai_response(user_id: int, user_message: str) -> str:
+    """Send the conversation to Groq and return the AI reply."""
+    history = get_history(user_id)
+
+    # Append the new user message
+    history.append({"role": "user", "content": user_message})
+
+    # Build the messages list with the system prompt prepended
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}] + history
+
+    # Call Groq API
+    response = groq_client.chat.completions.create(
+        model="llama3-8b-8192",
+        messages=messages,
+        temperature=0.7,
+        max_tokens=1024,
+    )
+
+    ai_reply = response.choices[0].message.content.strip()
+
+    # Store the assistant reply in history
+    history.append({"role": "assistant", "content": ai_reply})
+    trim_history(user_id)
+
+    return ai_reply
+
+
+# ─── Handlers ─────────────────────────────────────────────────────────────────
+
+async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle the /start command."""
+    welcome_message = (
+        "👋 Welcome to Nandi AI!\n"
+        "Send me any message and I'll answer using AI."
+    )
+    await update.message.reply_text(welcome_message)
+
+
+async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle every incoming text message."""
+    user = update.effective_user
+    user_id = user.id
+    user_message = update.message.text
+
+    logger.info("Message from %s (id=%d): %s", user.first_name, user_id, user_message)
+
+    # Show typing indicator while processing
+    await context.bot.send_chat_action(
+        chat_id=update.effective_chat.id,
+        action=ChatAction.TYPING,
+    )
+
+    try:
+        ai_reply = await get_ai_response(user_id, user_message)
+        await update.message.reply_text(ai_reply)
+    except Exception as e:
+        logger.error("Error generating AI response: %s", e)
+        await update.message.reply_text(
+            "⚠️ Sorry, I ran into an error while generating a response. "
+            "Please try again in a moment."
+        )
+
+
+async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Log unhandled errors raised by the dispatcher."""
+    logger.error("Unhandled exception: %s", context.error, exc_info=context.error)
+
+
+# ─── Entry Point ──────────────────────────────────────────────────────────────
+
+def main() -> None:
+    """Start the bot using long polling."""
+    logger.info("Starting Nandi AI bot...")
+
+    app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
+
+    # Register handlers
+    app.add_handler(CommandHandler("start", start_handler))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message_handler))
+    app.add_error_handler(error_handler)
+
+    logger.info("Bot is running. Press Ctrl+C to stop.")
+    app.run_polling(allowed_updates=Update.ALL_TYPES)
+
+
+if __name__ == "__main__":
+    main()
