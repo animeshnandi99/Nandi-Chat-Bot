@@ -35,9 +35,27 @@ if not GROQ_API_KEY:
 # ─── Groq Client ──────────────────────────────────────────────────────────────
 groq_client = Groq(api_key=GROQ_API_KEY)
 
-# ─── In-memory conversation history per user ──────────────────────────────────
-# Format: { user_id: [ {"role": "user"|"assistant", "content": "..."}, ... ] }
+# ─── Available Models ─────────────────────────────────────────────────────────
+MODELS: dict[str, dict] = {
+    "1": {
+        "id": "llama-3.3-70b-versatile",
+        "label": "LLaMA 3.3 70B Versatile",
+        "description": "Most capable — best for complex reasoning and detailed answers",
+    },
+    "2": {
+        "id": "llama-3.1-8b-instant",
+        "label": "LLaMA 3.1 8B Instant",
+        "description": "Lightweight & fast — best for quick, snappy replies",
+    },
+}
+
+DEFAULT_MODEL_KEY = "1"
+
+# ─── In-memory state per user ─────────────────────────────────────────────────
+# Conversation history:  { user_id: [ {"role": ..., "content": ...}, ... ] }
+# Selected model key:    { user_id: "1" | "2" }
 conversation_histories: dict[int, list[dict]] = {}
+user_model_keys: dict[int, str] = {}
 
 SYSTEM_PROMPT = (
     "You are Nandi AI, a helpful and friendly AI assistant built inside Telegram. "
@@ -48,6 +66,8 @@ SYSTEM_PROMPT = (
 
 MAX_HISTORY = 20  # Maximum number of messages to keep per user
 
+
+# ─── Helpers ──────────────────────────────────────────────────────────────────
 
 def get_history(user_id: int) -> list[dict]:
     """Return the conversation history for a user, initialising if needed."""
@@ -63,6 +83,16 @@ def trim_history(user_id: int) -> None:
         conversation_histories[user_id] = history[-MAX_HISTORY:]
 
 
+def get_model_key(user_id: int) -> str:
+    """Return the model key currently selected by this user."""
+    return user_model_keys.get(user_id, DEFAULT_MODEL_KEY)
+
+
+def get_model_id(user_id: int) -> str:
+    """Return the Groq model ID currently selected by this user."""
+    return MODELS[get_model_key(user_id)]["id"]
+
+
 async def get_ai_response(user_id: int, user_message: str) -> str:
     """Send the conversation to Groq and return the AI reply."""
     history = get_history(user_id)
@@ -73,9 +103,9 @@ async def get_ai_response(user_id: int, user_message: str) -> str:
     # Build the messages list with the system prompt prepended
     messages = [{"role": "system", "content": SYSTEM_PROMPT}] + history
 
-    # Call Groq API
+    # Call Groq API with the user's chosen model
     response = groq_client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
+        model=get_model_id(user_id),
         messages=messages,
         temperature=0.7,
         max_tokens=1024,
@@ -96,9 +126,46 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     """Handle the /start command."""
     welcome_message = (
         "👋 Welcome to Nandi AI!\n"
-        "Send me any message and I'll answer using AI."
+        "Send me any message and I'll answer using AI.\n\n"
+        "📋 Commands:\n"
+        "  /model — view & switch AI models\n"
+        "  /start — show this message"
     )
     await update.message.reply_text(welcome_message)
+
+
+async def model_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle the /model command — list models or switch to a new one."""
+    user_id = update.effective_user.id
+    args = context.args  # words after /model
+
+    # If the user passed a model number, switch to it
+    if args and args[0] in MODELS:
+        chosen_key = args[0]
+        user_model_keys[user_id] = chosen_key
+        model = MODELS[chosen_key]
+        # Clear history so the new model starts fresh
+        conversation_histories[user_id] = []
+        await update.message.reply_text(
+            f"✅ Switched to *{model['label']}*\n"
+            f"_{model['description']}_\n\n"
+            "Conversation history cleared. Start chatting!",
+            parse_mode="Markdown",
+        )
+        logger.info("User %d switched to model %s (%s)", user_id, chosen_key, model["id"])
+        return
+
+    # Otherwise show the model list
+    current_key = get_model_key(user_id)
+    lines = ["🤖 *Available Models*\n"]
+    for key, model in MODELS.items():
+        active = " ✅ *(active)*" if key == current_key else ""
+        lines.append(
+            f"*{key}.* {model['label']}{active}\n"
+            f"   _{model['description']}_"
+        )
+    lines.append("\nReply with `/model 1` or `/model 2` to switch.")
+    await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
 
 
 async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -107,7 +174,10 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     user_id = user.id
     user_message = update.message.text
 
-    logger.info("Message from %s (id=%d): %s", user.first_name, user_id, user_message)
+    logger.info(
+        "Message from %s (id=%d) [model=%s]: %s",
+        user.first_name, user_id, get_model_id(user_id), user_message,
+    )
 
     # Show typing indicator while processing
     await context.bot.send_chat_action(
@@ -141,6 +211,7 @@ def main() -> None:
 
     # Register handlers
     app.add_handler(CommandHandler("start", start_handler))
+    app.add_handler(CommandHandler("model", model_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message_handler))
     app.add_error_handler(error_handler)
 
