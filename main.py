@@ -75,7 +75,7 @@ async def get_ai_response(user_id: int, user_message: str) -> str:
 
     # Call Groq API
     response = groq_client.chat.completions.create(
-        model="llama3-8b-8192",
+        model="llama-3.3-70b-versatile",
         messages=messages,
         temperature=0.7,
         max_tokens=1024,
