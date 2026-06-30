@@ -192,19 +192,21 @@ async def users_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         await update.message.reply_text("🚫 This command is only for the bot owner.")
         return
 
-    if not state.active_users:
-        await update.message.reply_text("📊 No active users yet.")
+    if not state.all_users:
+        await update.message.reply_text("📊 No users yet.")
         return
 
-    lines = [f"📊 *User Activity* ({len(state.active_users)} total)\n"]
-    for uid in sorted(state.active_users):
+    lines = [f"\ud83d\udc65 *All Users* ({len(state.all_users)} total)\n"]
+    for uid in sorted(state.all_users):
+        is_online = "\ud83d\udfe2" if uid in state.active_users else "\u26ab"
         key = state.user_model_keys.get(uid, state.DEFAULT_MODEL_KEY)
         model_label = state.MODELS[key]["label"]
         msg_count = len(state.conversation_histories.get(uid, []))
-        lines.append(f"  `\u2022` User `{uid}` — {model_label} ({msg_count} msgs)")
+        lines.append(f"  {is_online} `{uid}` \u2014 {model_label} ({msg_count} msgs)")
 
-    lines.append(f"\n📥 Total messages received: {state.total_messages_received}")
-    lines.append(f"⚠️ Total errors: {state.errors_count}")
+    lines.append(f"\n\ud83d\udce5 Total messages received: {state.total_messages_received}")
+    lines.append(f"\ud83d\udfe2 Active now: {len(state.active_users)}")
+    lines.append(f"\u26a0\ufe0f Total errors: {state.errors_count}")
     await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
 
 
