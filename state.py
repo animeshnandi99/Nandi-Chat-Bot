@@ -26,3 +26,4 @@ total_messages_received: int = 0
 active_users: set[int] = set()
 all_users: set[int] = set()
 errors_count: int = 0
+user_feedbacks: list[dict] = []

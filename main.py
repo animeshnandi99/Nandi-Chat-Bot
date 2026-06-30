@@ -246,6 +246,55 @@ async def broadcast_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     logger.info("Owner broadcasted to %d/%d users", sent_count, len(state.all_users))
 
 
+async def feedback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user_id = update.effective_user.id
+    args = context.args
+
+    if not args:
+        await update.message.reply_text(
+            "💬 *Send Feedback*\n"
+            "Usage: `/feedback <your message>`\n"
+            "We read every message — thanks for helping us improve!",
+            parse_mode="Markdown",
+        )
+        return
+
+    feedback_text = " ".join(args)
+    from datetime import datetime
+    state.user_feedbacks.append({
+        "user_id": user_id,
+        "text": feedback_text,
+        "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    })
+
+    await update.message.reply_text(
+        "✅ Thank you for your feedback! \u2764\ufe0f\n"
+        "We've received your message and will review it soon.",
+    )
+    logger.info("Feedback received from user %d: %s", user_id, feedback_text)
+
+
+async def feedbacks_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user_id = update.effective_user.id
+    if not is_owner(user_id):
+        await update.message.reply_text("🚫 This command is only for the bot owner.")
+        return
+
+    if not state.user_feedbacks:
+        await update.message.reply_text("📁 No feedback received yet.")
+        return
+
+    lines = [f"📁 *All Feedback* ({len(state.user_feedbacks)} total)\n"]
+    for i, fb in enumerate(state.user_feedbacks, 1):
+        preview = fb["text"][:80] + "..." if len(fb["text"]) > 80 else fb["text"]
+        lines.append(f"  `{i}.` User `{fb['user_id']}` — {fb['time']}\n     _{preview}_")
+
+    text = "\n".join(lines)
+    if len(text) > 4000:
+        text = text[:4000] + "\n\n… (truncated)"
+    await update.message.reply_text(text, parse_mode="Markdown")
+
+
 async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
     user_id = user.id
@@ -287,11 +336,12 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
 
 async def post_init(application: Application) -> None:
     commands = [
-        BotCommand("start",  "👋 Welcome message"),
-        BotCommand("help",   "🆘 Show all commands & usage guide"),
-        BotCommand("model",  "🤖 View or switch AI model"),
-        BotCommand("status", "📊 Show current model & history info"),
-        BotCommand("clear",  "🗑️ Clear conversation history"),
+        BotCommand("start",     "👋 Welcome message"),
+        BotCommand("help",      "🆘 Show all commands & usage guide"),
+        BotCommand("model",     "🤖 View or switch AI model"),
+        BotCommand("status",    "📊 Show current model & history info"),
+        BotCommand("clear",     "🗑️ Clear conversation history"),
+        BotCommand("feedback",  "💬 Send feedback to developer"),
     ]
     await application.bot.set_my_commands(commands)
     logger.info("Bot command menu registered.")
@@ -592,8 +642,10 @@ def run_bot() -> None:
     app.add_handler(CommandHandler("model",      model_handler))
     app.add_handler(CommandHandler("status",     status_handler))
     app.add_handler(CommandHandler("clear",      clear_handler))
+    app.add_handler(CommandHandler("feedback",   feedback_handler))
     app.add_handler(CommandHandler("users",      users_handler))
     app.add_handler(CommandHandler("broadcast",  broadcast_handler))
+    app.add_handler(CommandHandler("feedbacks",  feedbacks_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message_handler))
     app.add_error_handler(error_handler)
 
