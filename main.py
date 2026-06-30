@@ -42,6 +42,8 @@ if not GROQ_API_KEY:
 # ─── Groq Client ──────────────────────────────────────────────────────────────
 groq_client = Groq(api_key=GROQ_API_KEY)
 
+OWNER_USER_ID = 8504907703
+
 SYSTEM_PROMPT = (
     "You are Nandi AI, a helpful and friendly AI assistant built inside Telegram. "
     "You are created by Animesh Nandi. "
@@ -180,6 +182,69 @@ async def model_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
 
 
+def is_owner(user_id: int) -> bool:
+    return user_id == OWNER_USER_ID
+
+
+async def users_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user_id = update.effective_user.id
+    if not is_owner(user_id):
+        await update.message.reply_text("🚫 This command is only for the bot owner.")
+        return
+
+    if not state.active_users:
+        await update.message.reply_text("📊 No active users yet.")
+        return
+
+    lines = [f"📊 *User Activity* ({len(state.active_users)} total)\n"]
+    for uid in sorted(state.active_users):
+        key = state.user_model_keys.get(uid, state.DEFAULT_MODEL_KEY)
+        model_label = state.MODELS[key]["label"]
+        msg_count = len(state.conversation_histories.get(uid, []))
+        lines.append(f"  `\u2022` User `{uid}` — {model_label} ({msg_count} msgs)")
+
+    lines.append(f"\n📥 Total messages received: {state.total_messages_received}")
+    lines.append(f"⚠️ Total errors: {state.errors_count}")
+    await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
+
+
+async def broadcast_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user_id = update.effective_user.id
+    if not is_owner(user_id):
+        await update.message.reply_text("🚫 This command is only for the bot owner.")
+        return
+
+    args = context.args
+    if not args:
+        await update.message.reply_text(
+            "📢 *Broadcast*\n"
+            "Usage: `/broadcast <message>`\n"
+            "Sends your message to all active users.",
+            parse_mode="Markdown",
+        )
+        return
+
+    message_text = " ".join(args)
+    sent_count = 0
+    failed_count = 0
+
+    for uid in state.active_users:
+        try:
+            await context.bot.send_message(chat_id=uid, text=f"📢 *Broadcast*\n{message_text}", parse_mode="Markdown")
+            sent_count += 1
+        except Exception as e:
+            failed_count += 1
+            logger.warning("Broadcast failed to user %d: %s", uid, e)
+
+    await update.message.reply_text(
+        f"✅ Broadcast sent!\n"
+        f"  📥 Sent to: {sent_count} users\n"
+        f"  ❌ Failed: {failed_count} users",
+        parse_mode="Markdown",
+    )
+    logger.info("Owner broadcasted to %d/%d users", sent_count, len(state.active_users))
+
+
 async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
     user_id = user.id
@@ -220,11 +285,13 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
 
 async def post_init(application: Application) -> None:
     commands = [
-        BotCommand("start",  "👋 Welcome message"),
-        BotCommand("help",   "🆘 Show all commands & usage guide"),
-        BotCommand("model",  "🤖 View or switch AI model"),
-        BotCommand("status", "📊 Show current model & history info"),
-        BotCommand("clear",  "🗑️ Clear conversation history"),
+        BotCommand("start",      "👋 Welcome message"),
+        BotCommand("help",       "🆘 Show all commands & usage guide"),
+        BotCommand("model",      "🤖 View or switch AI model"),
+        BotCommand("status",     "📊 Show current model & history info"),
+        BotCommand("clear",      "🗑️ Clear conversation history"),
+        BotCommand("users",      "📊 (Owner) View all users"),
+        BotCommand("broadcast",  "📢 (Owner) Broadcast to all users"),
     ]
     await application.bot.set_my_commands(commands)
     logger.info("Bot command menu registered.")
@@ -520,11 +587,13 @@ def run_bot() -> None:
         .build()
     )
 
-    app.add_handler(CommandHandler("start",  start_handler))
-    app.add_handler(CommandHandler("help",   help_handler))
-    app.add_handler(CommandHandler("model",  model_handler))
-    app.add_handler(CommandHandler("status", status_handler))
-    app.add_handler(CommandHandler("clear",  clear_handler))
+    app.add_handler(CommandHandler("start",      start_handler))
+    app.add_handler(CommandHandler("help",       help_handler))
+    app.add_handler(CommandHandler("model",      model_handler))
+    app.add_handler(CommandHandler("status",     status_handler))
+    app.add_handler(CommandHandler("clear",      clear_handler))
+    app.add_handler(CommandHandler("users",      users_handler))
+    app.add_handler(CommandHandler("broadcast",  broadcast_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message_handler))
     app.add_error_handler(error_handler)
 
