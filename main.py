@@ -191,28 +191,27 @@ def is_owner(user_id: int) -> bool:
 async def users_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.effective_user.id
     if not is_owner(user_id):
-        await update.message.reply_text("🚫 This command is only for the bot owner.")
+        await update.message.reply_text("This command is only for the bot owner.")
         return
 
     if not state.all_users:
-        await update.message.reply_text("📊 No users yet.")
+        await update.message.reply_text("No users yet.")
         return
 
-    lines = [f"\ud83d\udc65 *All Users* ({len(state.all_users)} total)\n"]
+    lines = [f"All Users ({len(state.all_users)} total)"]
     for uid in sorted(state.all_users):
-        is_online = "\ud83d\udfe2" if uid in state.active_users else "\u26ab"
-        started = "\ud83d\ude80" if uid in state.started_users else ""
+        is_online = "[ON]" if uid in state.active_users else "[OFF]"
+        started = " [START]" if uid in state.started_users else ""
         key = state.user_model_keys.get(uid, state.DEFAULT_MODEL_KEY)
         model_label = state.MODELS[key]["label"]
         msg_count = len(state.conversation_histories.get(uid, []))
-        start_tag = f" {started}" if started else ""
-        lines.append(f"  {is_online} `{uid}`{start_tag} \u2014 {model_label} ({msg_count} msgs)")
+        lines.append(f"  {is_online} {uid}{started} -- {model_label} ({msg_count} msgs)")
 
-    lines.append(f"\n\ud83d\udce5 Total messages received: {state.total_messages_received}")
-    lines.append(f"\ud83d\udfe2 Active now: {len(state.active_users)}")
-    lines.append(f"\ud83d\ude80 Started bot: {len(state.started_users)}")
-    lines.append(f"\u26a0\ufe0f Total errors: {state.errors_count}")
-    await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
+    lines.append(f"\nTotal messages: {state.total_messages_received}")
+    lines.append(f"Active now: {len(state.active_users)}")
+    lines.append(f"Started bot: {len(state.started_users)}")
+    lines.append(f"Errors: {state.errors_count}")
+    await update.message.reply_text("\n".join(lines))
 
 
 async def broadcast_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
