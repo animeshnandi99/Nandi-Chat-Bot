@@ -4,7 +4,11 @@ Developer: Animesh Nandi
 """
 
 import os
+import sys
+import time
 import logging
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
 from groq import Groq
 from telegram import Update, BotCommand
 from telegram.constants import ChatAction
@@ -52,8 +56,6 @@ MODELS: dict[str, dict] = {
 DEFAULT_MODEL_KEY = "1"
 
 # ─── In-memory state per user ─────────────────────────────────────────────────
-# Conversation history:  { user_id: [ {"role": ..., "content": ...}, ... ] }
-# Selected model key:    { user_id: "1" | "2" }
 conversation_histories: dict[int, list[dict]] = {}
 user_model_keys: dict[int, str] = {}
 
@@ -64,46 +66,35 @@ SYSTEM_PROMPT = (
     "When code is involved, use proper formatting."
 )
 
-MAX_HISTORY = 20  # Maximum number of messages to keep per user
-
+MAX_HISTORY = 20
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 
 def get_history(user_id: int) -> list[dict]:
-    """Return the conversation history for a user, initialising if needed."""
     if user_id not in conversation_histories:
         conversation_histories[user_id] = []
     return conversation_histories[user_id]
 
 
 def trim_history(user_id: int) -> None:
-    """Keep history within MAX_HISTORY messages to avoid token overflow."""
     history = conversation_histories.get(user_id, [])
     if len(history) > MAX_HISTORY:
         conversation_histories[user_id] = history[-MAX_HISTORY:]
 
 
 def get_model_key(user_id: int) -> str:
-    """Return the model key currently selected by this user."""
     return user_model_keys.get(user_id, DEFAULT_MODEL_KEY)
 
 
 def get_model_id(user_id: int) -> str:
-    """Return the Groq model ID currently selected by this user."""
     return MODELS[get_model_key(user_id)]["id"]
 
 
 async def get_ai_response(user_id: int, user_message: str) -> str:
-    """Send the conversation to Groq and return the AI reply."""
     history = get_history(user_id)
-
-    # Append the new user message
     history.append({"role": "user", "content": user_message})
-
-    # Build the messages list with the system prompt prepended
     messages = [{"role": "system", "content": SYSTEM_PROMPT}] + history
 
-    # Call Groq API with the user's chosen model
     response = groq_client.chat.completions.create(
         model=get_model_id(user_id),
         messages=messages,
@@ -112,18 +103,14 @@ async def get_ai_response(user_id: int, user_message: str) -> str:
     )
 
     ai_reply = response.choices[0].message.content.strip()
-
-    # Store the assistant reply in history
     history.append({"role": "assistant", "content": ai_reply})
     trim_history(user_id)
-
     return ai_reply
 
 
 # ─── Handlers ─────────────────────────────────────────────────────────────────
 
 async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle the /start command."""
     user = update.effective_user
     await update.message.reply_text(
         f"👋 Welcome to *Nandi AI*, {user.first_name}!\n"
@@ -134,7 +121,6 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 
 async def help_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle the /help command — show full command reference."""
     await update.message.reply_text(
         "🆘 *Nandi AI — Help*\n\n"
         "*Commands:*\n"
@@ -154,7 +140,6 @@ async def help_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 
 async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle the /status command — show current model and history size."""
     user_id = update.effective_user.id
     model_key = get_model_key(user_id)
     model = MODELS[model_key]
@@ -173,7 +158,6 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 
 async def clear_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle the /clear command — wipe the user's conversation history."""
     user_id = update.effective_user.id
     conversation_histories[user_id] = []
     await update.message.reply_text(
@@ -184,16 +168,13 @@ async def clear_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 
 async def model_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle the /model command — list models or switch to a new one."""
     user_id = update.effective_user.id
-    args = context.args  # words after /model
+    args = context.args
 
-    # If the user passed a model number, switch to it
     if args and args[0] in MODELS:
         chosen_key = args[0]
         user_model_keys[user_id] = chosen_key
         model = MODELS[chosen_key]
-        # Clear history so the new model starts fresh
         conversation_histories[user_id] = []
         await update.message.reply_text(
             f"✅ Switched to *{model['label']}*\n"
@@ -204,7 +185,6 @@ async def model_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         logger.info("User %d switched to model %s (%s)", user_id, chosen_key, model["id"])
         return
 
-    # Otherwise show the model list
     current_key = get_model_key(user_id)
     lines = ["🤖 *Available Models*\n"]
     for key, model in MODELS.items():
@@ -218,7 +198,6 @@ async def model_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 
 async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle every incoming text message."""
     user = update.effective_user
     user_id = user.id
     user_message = update.message.text
@@ -228,7 +207,6 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         user.first_name, user_id, get_model_id(user_id), user_message,
     )
 
-    # Show typing indicator while processing
     await context.bot.send_chat_action(
         chat_id=update.effective_chat.id,
         action=ChatAction.TYPING,
@@ -246,14 +224,12 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Log unhandled errors raised by the dispatcher."""
     logger.error("Unhandled exception: %s", context.error, exc_info=context.error)
 
 
 # ─── Bot Menu Registration ─────────────────────────────────────────────────────
 
 async def post_init(application: Application) -> None:
-    """Register commands with Telegram so they appear in the / menu."""
     commands = [
         BotCommand("start",  "👋 Welcome message"),
         BotCommand("help",   "🆘 Show all commands & usage guide"),
@@ -265,20 +241,40 @@ async def post_init(application: Application) -> None:
     logger.info("Bot command menu registered.")
 
 
-# ─── Entry Point ──────────────────────────────────────────────────────────────
+# ─── Health Server ─────────────────────────────────────────────────────────────
 
-def main() -> None:
-    """Start the bot using long polling."""
-    logger.info("Starting Nandi AI bot...")
+class HealthHandler(BaseHTTPRequestHandler):
+    """Lightweight HTTP handler that responds to keep-alive pings."""
 
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        self.wfile.write(b'{"status":"ok","bot":"Nandi AI"}')
+
+    def log_message(self, format, *args):
+        logger.debug("Health ping: %s", args[0])
+
+
+def start_health_server(port: int = 8080) -> None:
+    """Run a non-blocking HTTP server in a daemon thread."""
+    server = HTTPServer(("0.0.0.0", port), HealthHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    logger.info("Health server listening on port %d", port)
+
+
+# ─── Supervisor Loop ───────────────────────────────────────────────────────────
+
+def run_bot() -> None:
+    """Start the Telegram bot (blocking call)."""
     app = (
         Application.builder()
         .token(TELEGRAM_BOT_TOKEN)
-        .post_init(post_init)   # registers the / menu on startup
+        .post_init(post_init)
         .build()
     )
 
-    # Register handlers
     app.add_handler(CommandHandler("start",  start_handler))
     app.add_handler(CommandHandler("help",   help_handler))
     app.add_handler(CommandHandler("model",  model_handler))
@@ -287,8 +283,34 @@ def main() -> None:
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message_handler))
     app.add_error_handler(error_handler)
 
-    logger.info("Bot is running. Press Ctrl+C to stop.")
+    logger.info("Bot polling started.")
     app.run_polling(allowed_updates=Update.ALL_TYPES)
+
+
+def main() -> None:
+    """Start the health server and supervise the bot with auto-restart."""
+    logger.info("Starting Nandi AI bot supervisor...")
+
+    # Start keep-alive HTTP server in background
+    start_health_server(port=9000)
+
+    restart_delay = 5  # seconds between restarts
+    max_restarts = 0   # 0 = unlimited
+    restart_count = 0
+
+    while max_restarts == 0 or restart_count < max_restarts:
+        try:
+            run_bot()
+        except KeyboardInterrupt:
+            logger.info("Shutdown requested by user. Exiting.")
+            sys.exit(0)
+        except Exception as exc:
+            restart_count += 1
+            logger.error("Bot crashed: %s", exc, exc_info=True)
+            logger.info("Restarting in %d seconds... (restart #%d)", restart_delay, restart_count)
+            time.sleep(restart_delay)
+            # Exponential back-off up to 60s
+            restart_delay = min(restart_delay * 2, 60)
 
 
 if __name__ == "__main__":
