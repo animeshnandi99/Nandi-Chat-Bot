@@ -252,6 +252,41 @@ def start_health_server(port: int = 9000) -> None:
 
 # ─── Dashboard (Flask) ──────────────────────────────────────────────────────────
 
+DASHBOARD_PASSWORD = os.environ.get("DASHBOARD_PASSWORD") or os.environ.get("SESSION_SECRET", "nandi-ai-admin")
+
+LOGIN_HTML = """<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nandi AI — Admin Login</title>
+  <style>
+    :root { --bg: #0f172a; --card: #1e293b; --text: #f1f5f9; --muted: #94a3b8; --accent: #10b981; --border: #334155; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+    .login-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 2.5rem; width: 100%; max-width: 360px; }
+    .login-card h1 { font-size: 1.4rem; margin-bottom: 1.5rem; text-align: center; }
+    .login-card input { width: 100%; padding: 0.75rem 1rem; margin-bottom: 1rem; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); font-size: 1rem; }
+    .login-card input:focus { outline: none; border-color: var(--accent); }
+    .login-card button { width: 100%; padding: 0.75rem; background: var(--accent); color: #fff; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; }
+    .login-card button:hover { opacity: .9; }
+    .error { color: var(--danger); font-size: 0.85rem; text-align: center; margin-bottom: 0.75rem; }
+    .hint { color: var(--muted); font-size: 0.75rem; text-align: center; margin-top: 1rem; }
+  </style>
+</head>
+<body>
+  <div class="login-card">
+    <h1>🔐 Nandi AI Dashboard</h1>
+    {% if error %}<p class="error">{{ error }}</p>{% endif %}
+    <form method="post" action="/login">
+      <input type="password" name="password" placeholder="Enter password" required autofocus>
+      <button type="submit">Sign In</button>
+    </form>
+    <p class="hint">Set DASHBOARD_PASSWORD in Secrets to change this password.</p>
+  </div>
+</body>
+</html>"""
+
 DASHBOARD_HTML = """<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -360,6 +395,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 </html>"""
 
 flask_app = Flask(__name__)
+flask_app.secret_key = os.environ.get("SESSION_SECRET", "nandi-ai-default-secret")
 dashboard_start_time = time.time()
 
 
@@ -414,16 +450,48 @@ def get_dashboard_data() -> dict:
     }
 
 
+def check_auth():
+    from flask import request, session, redirect, url_for
+    if session.get("authenticated"):
+        return None
+    if request.form.get("password") == DASHBOARD_PASSWORD:
+        session["authenticated"] = True
+        return None
+    return redirect(url_for("login_page"))
+
+
+@flask_app.route("/login", methods=["GET", "POST"])
+def login_page():
+    from flask import request, session, render_template_string, redirect, url_for
+    if request.method == "POST":
+        if request.form.get("password") == DASHBOARD_PASSWORD:
+            session["authenticated"] = True
+            return redirect(url_for("dashboard"))
+        return render_template_string(LOGIN_HTML, error="Incorrect password. Try again.")
+    return render_template_string(LOGIN_HTML)
+
+
+@flask_app.route("/logout")
+def logout_page():
+    from flask import session, redirect, url_for
+    session.pop("authenticated", None)
+    return redirect(url_for("login_page"))
+
+
 @flask_app.route("/")
 def dashboard():
-    from flask import render_template_string
+    from flask import render_template_string, session, redirect, url_for
+    if not session.get("authenticated"):
+        return redirect(url_for("login_page"))
     data = get_dashboard_data()
     return render_template_string(DASHBOARD_HTML, **data)
 
 
 @flask_app.route("/api/stats")
 def api_stats():
-    from flask import jsonify
+    from flask import jsonify, session, redirect, url_for
+    if not session.get("authenticated"):
+        return redirect(url_for("login_page"))
     return jsonify({"status": "ok", "bot": "Nandi AI", **get_dashboard_data()})
 
 
