@@ -219,7 +219,7 @@ async def broadcast_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         await update.message.reply_text(
             "📢 *Broadcast*\n"
             "Usage: `/broadcast <message>`\n"
-            "Sends your message to all active users.",
+            "Sends your message to *all users* (online and offline).",
             parse_mode="Markdown",
         )
         return
