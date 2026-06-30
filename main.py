@@ -285,13 +285,11 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
 
 async def post_init(application: Application) -> None:
     commands = [
-        BotCommand("start",      "👋 Welcome message"),
-        BotCommand("help",       "🆘 Show all commands & usage guide"),
-        BotCommand("model",      "🤖 View or switch AI model"),
-        BotCommand("status",     "📊 Show current model & history info"),
-        BotCommand("clear",      "🗑️ Clear conversation history"),
-        BotCommand("users",      "📊 (Owner) View all users"),
-        BotCommand("broadcast",  "📢 (Owner) Broadcast to all users"),
+        BotCommand("start",  "👋 Welcome message"),
+        BotCommand("help",   "🆘 Show all commands & usage guide"),
+        BotCommand("model",  "🤖 View or switch AI model"),
+        BotCommand("status", "📊 Show current model & history info"),
+        BotCommand("clear",  "🗑️ Clear conversation history"),
     ]
     await application.bot.set_my_commands(commands)
     logger.info("Bot command menu registered.")
