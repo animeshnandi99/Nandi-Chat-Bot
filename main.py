@@ -97,6 +97,8 @@ async def get_ai_response(user_id: int, user_message: str) -> str:
 
 async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
+    state.started_users.add(user.id)
+    state.all_users.add(user.id)
     await update.message.reply_text(
         f"👋 Welcome to *Nandi AI*, {user.first_name}!\n"
         "I'm your AI assistant developed by Animesh Nandi.\n\n"
@@ -199,13 +201,16 @@ async def users_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     lines = [f"\ud83d\udc65 *All Users* ({len(state.all_users)} total)\n"]
     for uid in sorted(state.all_users):
         is_online = "\ud83d\udfe2" if uid in state.active_users else "\u26ab"
+        started = "\ud83d\ude80" if uid in state.started_users else ""
         key = state.user_model_keys.get(uid, state.DEFAULT_MODEL_KEY)
         model_label = state.MODELS[key]["label"]
         msg_count = len(state.conversation_histories.get(uid, []))
-        lines.append(f"  {is_online} `{uid}` \u2014 {model_label} ({msg_count} msgs)")
+        start_tag = f" {started}" if started else ""
+        lines.append(f"  {is_online} `{uid}`{start_tag} \u2014 {model_label} ({msg_count} msgs)")
 
     lines.append(f"\n\ud83d\udce5 Total messages received: {state.total_messages_received}")
     lines.append(f"\ud83d\udfe2 Active now: {len(state.active_users)}")
+    lines.append(f"\ud83d\ude80 Started bot: {len(state.started_users)}")
     lines.append(f"\u26a0\ufe0f Total errors: {state.errors_count}")
     await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
 

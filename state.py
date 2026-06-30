@@ -27,3 +27,4 @@ active_users: set[int] = set()
 all_users: set[int] = set()
 errors_count: int = 0
 user_feedbacks: list[dict] = []
+started_users: set[int] = set()
