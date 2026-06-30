@@ -410,112 +410,7 @@ LOGIN_HTML = """<!DOCTYPE html>
 </body>
 </html>"""
 
-DASHBOARD_HTML = """<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Nandi AI — Admin Dashboard</title>
-  <style>
-    :root {
-      --bg: #0f172a; --card: #1e293b; --text: #f1f5f9;
-      --muted: #94a3b8; --accent: #10b981; --accent2: #f59e0b;
-      --danger: #ef4444; --border: #334155;
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
-    header { background: var(--card); border-bottom: 1px solid var(--border); padding: 1.25rem 2rem; display: flex; align-items: center; justify-content: space-between; }
-    header h1 { font-size: 1.5rem; display: flex; align-items: center; gap: 0.5rem; }
-    .live { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; color: var(--muted); }
-    .live-dot { width: 8px; height: 8px; background: var(--accent); border-radius: 50%; animation: pulse 2s infinite; }
-    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
-    .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1.25rem; margin-bottom: 2rem; }
-    .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; transition: transform .15s; }
-    .stat-card:hover { transform: translateY(-2px); }
-    .stat-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 0.5rem; }
-    .stat-value { font-size: 2rem; font-weight: 700; }
-    .stat-sub { font-size: 0.8rem; color: var(--muted); margin-top: 0.25rem; }
-    .section { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; margin-bottom: 1.25rem; }
-    .section h2 { font-size: 1.1rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
-    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
-    th, td { text-align: left; padding: 0.75rem; border-bottom: 1px solid var(--border); }
-    th { color: var(--muted); font-weight: 500; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; }
-    .model-badge { display: inline-block; padding: 0.2rem 0.5rem; border-radius: 999px; font-size: 0.75rem; font-weight: 500; background: rgba(16,185,129,.15); color: var(--accent); }
-    .uptime { font-family: 'SF Mono', monospace; color: var(--muted); font-size: 0.85rem; }
-    footer { text-align: center; padding: 2rem; color: var(--muted); font-size: 0.8rem; }
-  </style>
-</head>
-<body>
-  <header>
-    <h1>👋 Nandi AI — Admin Dashboard</h1>
-    <div class="live"><span class="live-dot"></span> Bot is online</div>
-  </header>
 
-  <div class="container">
-    <div class="grid">
-      <div class="stat-card">
-        <div class="stat-label">Active Users</div>
-        <div class="stat-value">{{ stats.active_users }}</div>
-        <div class="stat-sub">unique chat sessions</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Messages Received</div>
-        <div class="stat-value">{{ stats.total_messages }}</div>
-        <div class="stat-sub">since last restart</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Errors</div>
-        <div class="stat-value" style="color:{% if stats.errors > 0 %}var(--danger){% else %}var(--accent){% endif %}">{{ stats.errors }}</div>
-        <div class="stat-sub">total failures</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Uptime</div>
-        <div class="stat-value uptime">{{ stats.uptime }}</div>
-        <div class="stat-sub">HH:MM:SS</div>
-      </div>
-    </div>
-
-    <div class="section">
-      <h2>📊 Model Usage</h2>
-      <table>
-        <tr><th>Model</th><th>ID</th><th>Active Users</th><th>Description</th></tr>
-        {% for m in models %}
-        <tr>
-          <td><span class="model-badge">{{ m.label }}</span></td>
-          <td>{{ m.id }}</td>
-          <td>{{ m.active_users }}</td>
-          <td style="color:var(--muted)">{{ m.description }}</td>
-        </tr>
-        {% endfor %}
-      </table>
-    </div>
-
-    <div class="section">
-      <h2>💬 Recent Conversations</h2>
-      {% if conversations %}
-      <table>
-        <tr><th>User ID</th><th>Model</th><th>Messages</th><th>Last Activity</th></tr>
-        {% for c in conversations %}
-        <tr>
-          <td>{{ c.user_id }}</td>
-          <td><span class="model-badge">{{ c.model }}</span></td>
-          <td>{{ c.message_count }}</td>
-          <td style="color:var(--muted)">{{ c.last_message }}</td>
-        </tr>
-        {% endfor %}
-      </table>
-      {% else %}
-      <p style="color:var(--muted)">No active conversations yet.</p>
-      {% endif %}
-    </div>
-  </div>
-
-  <footer>
-    Nandi AI — Admin Dashboard &middot; Developer: Animesh Nandi &middot; <span class="uptime">Updated {{ stats.now }}</span>
-  </footer>
-</body>
-</html>"""
 
 flask_app = Flask(__name__)
 flask_app.secret_key = os.environ.get("SESSION_SECRET", "nandi-ai-default-secret")
@@ -529,6 +424,7 @@ def fmt_uptime(seconds: float) -> str:
 
 
 def get_dashboard_data() -> dict:
+    import json
     uptime = time.time() - dashboard_start_time
 
     model_user_counts = {"1": 0, "2": 0}
@@ -560,9 +456,31 @@ def get_dashboard_data() -> dict:
             "active_users": model_user_counts.get(key, 0),
         })
 
+    users = []
+    for uid in sorted(state.all_users):
+        key = state.user_model_keys.get(uid, state.DEFAULT_MODEL_KEY)
+        users.append({
+            "id": uid,
+            "online": uid in state.active_users,
+            "started": uid in state.started_users,
+            "model": state.MODELS[key]["label"],
+            "messages": len(state.conversation_histories.get(uid, [])),
+        })
+
+    feedbacks = []
+    for i, fb in enumerate(state.user_feedbacks, 1):
+        feedbacks.append({
+            "idx": i,
+            "user_id": fb["user_id"],
+            "time": fb["time"],
+            "text": fb["text"][:200],
+        })
+
     return {
         "stats": {
             "active_users": len(state.active_users),
+            "all_users": len(state.all_users),
+            "started_users": len(state.started_users),
             "total_messages": state.total_messages_received,
             "errors": state.errors_count,
             "uptime": fmt_uptime(uptime),
@@ -570,6 +488,9 @@ def get_dashboard_data() -> dict:
         },
         "models": models,
         "conversations": conversations,
+        "users": users,
+        "users_json": json.dumps(users),
+        "feedbacks": feedbacks,
     }
 
 
@@ -607,7 +528,9 @@ def dashboard():
     if not session.get("authenticated"):
         return redirect(url_for("login_page"))
     data = get_dashboard_data()
-    return render_template_string(DASHBOARD_HTML, **data)
+    with open("dashboard.html", "r", encoding="utf-8") as f:
+        template = f.read()
+    return render_template_string(template, **data)
 
 
 @flask_app.route("/api/stats")
@@ -616,6 +539,32 @@ def api_stats():
     if not session.get("authenticated"):
         return redirect(url_for("login_page"))
     return jsonify({"status": "ok", "bot": "Nandi AI", **get_dashboard_data()})
+
+
+@flask_app.route("/api/broadcast", methods=["POST"])
+def api_broadcast():
+    from flask import request, jsonify, session
+    if not session.get("authenticated"):
+        return jsonify({"ok": False, "error": "Not authenticated"}), 401
+    data = request.get_json() or {}
+    message = (data.get("message") or "").strip()
+    scope = data.get("scope", "all")
+    if not message:
+        return jsonify({"ok": False, "error": "Empty message"})
+
+    import asyncio
+    target_set = state.active_users if scope == "active" else state.all_users
+    sent = 0
+    failed = 0
+    for uid in target_set:
+        try:
+            asyncio.run(app.bot.send_message(chat_id=uid, text="[Admin]\n" + message))
+            sent += 1
+        except Exception as e:
+            failed += 1
+            logger.warning("Dashboard broadcast failed to %d: %s", uid, e)
+    logger.info("Dashboard broadcast: %d/%d users", sent, len(target_set))
+    return jsonify({"ok": True, "sent": sent, "failed": failed})
 
 
 @flask_app.route("/api/health")
