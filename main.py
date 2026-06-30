@@ -228,7 +228,7 @@ async def broadcast_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     sent_count = 0
     failed_count = 0
 
-    for uid in state.active_users:
+    for uid in state.all_users:
         try:
             await context.bot.send_message(chat_id=uid, text=f"📢 *Broadcast*\n{message_text}", parse_mode="Markdown")
             sent_count += 1
@@ -239,10 +239,11 @@ async def broadcast_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     await update.message.reply_text(
         f"✅ Broadcast sent!\n"
         f"  📥 Sent to: {sent_count} users\n"
-        f"  ❌ Failed: {failed_count} users",
+        f"  ❌ Failed: {failed_count} users\n"
+        f"  👥 Total users: {len(state.all_users)}",
         parse_mode="Markdown",
     )
-    logger.info("Owner broadcasted to %d/%d users", sent_count, len(state.active_users))
+    logger.info("Owner broadcasted to %d/%d users", sent_count, len(state.all_users))
 
 
 async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -253,6 +254,7 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     # Update shared state for dashboard
     state.total_messages_received += 1
     state.active_users.add(user_id)
+    state.all_users.add(user_id)
 
     logger.info(
         "Message from %s (id=%d) [model=%s]: %s",
