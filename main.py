@@ -9,6 +9,8 @@ import time
 import logging
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
+from flask import Flask
+from datetime import datetime
 from groq import Groq
 from telegram import Update, BotCommand
 from telegram.constants import ChatAction
@@ -19,6 +21,7 @@ from telegram.ext import (
     ContextTypes,
     filters,
 )
+import state
 
 # ─── Logging ──────────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -39,26 +42,6 @@ if not GROQ_API_KEY:
 # ─── Groq Client ──────────────────────────────────────────────────────────────
 groq_client = Groq(api_key=GROQ_API_KEY)
 
-# ─── Available Models ─────────────────────────────────────────────────────────
-MODELS: dict[str, dict] = {
-    "1": {
-        "id": "llama-3.3-70b-versatile",
-        "label": "LLaMA 3.3 70B Versatile",
-        "description": "Most capable — best for complex reasoning and detailed answers",
-    },
-    "2": {
-        "id": "llama-3.1-8b-instant",
-        "label": "LLaMA 3.1 8B Instant",
-        "description": "Lightweight & fast — best for quick, snappy replies",
-    },
-}
-
-DEFAULT_MODEL_KEY = "1"
-
-# ─── In-memory state per user ─────────────────────────────────────────────────
-conversation_histories: dict[int, list[dict]] = {}
-user_model_keys: dict[int, str] = {}
-
 SYSTEM_PROMPT = (
     "You are Nandi AI, a helpful and friendly AI assistant built inside Telegram. "
     "You are created by Animesh Nandi. "
@@ -71,23 +54,23 @@ MAX_HISTORY = 20
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 
 def get_history(user_id: int) -> list[dict]:
-    if user_id not in conversation_histories:
-        conversation_histories[user_id] = []
-    return conversation_histories[user_id]
+    if user_id not in state.conversation_histories:
+        state.conversation_histories[user_id] = []
+    return state.conversation_histories[user_id]
 
 
 def trim_history(user_id: int) -> None:
-    history = conversation_histories.get(user_id, [])
+    history = state.conversation_histories.get(user_id, [])
     if len(history) > MAX_HISTORY:
-        conversation_histories[user_id] = history[-MAX_HISTORY:]
+        state.conversation_histories[user_id] = history[-MAX_HISTORY:]
 
 
 def get_model_key(user_id: int) -> str:
-    return user_model_keys.get(user_id, DEFAULT_MODEL_KEY)
+    return state.user_model_keys.get(user_id, state.DEFAULT_MODEL_KEY)
 
 
 def get_model_id(user_id: int) -> str:
-    return MODELS[get_model_key(user_id)]["id"]
+    return state.MODELS[get_model_key(user_id)]["id"]
 
 
 async def get_ai_response(user_id: int, user_message: str) -> str:
@@ -108,7 +91,7 @@ async def get_ai_response(user_id: int, user_message: str) -> str:
     return ai_reply
 
 
-# ─── Handlers ─────────────────────────────────────────────────────────────────
+# ─── Handlers ──────────────────────────────────────────────────────────────────
 
 async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
@@ -142,7 +125,7 @@ async def help_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.effective_user.id
     model_key = get_model_key(user_id)
-    model = MODELS[model_key]
+    model = state.MODELS[model_key]
     history_count = len(get_history(user_id))
     msg_word = "message" if history_count == 1 else "messages"
 
@@ -159,7 +142,7 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 async def clear_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.effective_user.id
-    conversation_histories[user_id] = []
+    state.conversation_histories[user_id] = []
     await update.message.reply_text(
         "🗑️ Conversation history cleared!\n"
         "Let's start fresh — what's on your mind?"
@@ -171,11 +154,11 @@ async def model_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     user_id = update.effective_user.id
     args = context.args
 
-    if args and args[0] in MODELS:
+    if args and args[0] in state.MODELS:
         chosen_key = args[0]
-        user_model_keys[user_id] = chosen_key
-        model = MODELS[chosen_key]
-        conversation_histories[user_id] = []
+        state.user_model_keys[user_id] = chosen_key
+        model = state.MODELS[chosen_key]
+        state.conversation_histories[user_id] = []
         await update.message.reply_text(
             f"✅ Switched to *{model['label']}*\n"
             f"_{model['description']}_\n\n"
@@ -187,7 +170,7 @@ async def model_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     current_key = get_model_key(user_id)
     lines = ["🤖 *Available Models*\n"]
-    for key, model in MODELS.items():
+    for key, model in state.MODELS.items():
         active = " ✅ *(active)*" if key == current_key else ""
         lines.append(
             f"*{key}.* {model['label']}{active}\n"
@@ -201,6 +184,10 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     user = update.effective_user
     user_id = user.id
     user_message = update.message.text
+
+    # Update shared state for dashboard
+    state.total_messages_received += 1
+    state.active_users.add(user_id)
 
     logger.info(
         "Message from %s (id=%d) [model=%s]: %s",
@@ -216,6 +203,7 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         ai_reply = await get_ai_response(user_id, user_message)
         await update.message.reply_text(ai_reply)
     except Exception as e:
+        state.errors_count += 1
         logger.error("Error generating AI response: %s", e)
         await update.message.reply_text(
             "⚠️ Sorry, I ran into an error while generating a response. "
@@ -224,10 +212,11 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    state.errors_count += 1
     logger.error("Unhandled exception: %s", context.error, exc_info=context.error)
 
 
-# ─── Bot Menu Registration ─────────────────────────────────────────────────────
+# ─── Bot Menu Registration ─────────────────────────────────────────────────────────────────
 
 async def post_init(application: Application) -> None:
     commands = [
@@ -241,11 +230,9 @@ async def post_init(application: Application) -> None:
     logger.info("Bot command menu registered.")
 
 
-# ─── Health Server ─────────────────────────────────────────────────────────────
+# ─── Health Server ──────────────────────────────────────────────────────────────
 
 class HealthHandler(BaseHTTPRequestHandler):
-    """Lightweight HTTP handler that responds to keep-alive pings."""
-
     def do_GET(self):
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
@@ -256,18 +243,208 @@ class HealthHandler(BaseHTTPRequestHandler):
         logger.debug("Health ping: %s", args[0])
 
 
-def start_health_server(port: int = 8080) -> None:
-    """Run a non-blocking HTTP server in a daemon thread."""
+def start_health_server(port: int = 9000) -> None:
     server = HTTPServer(("0.0.0.0", port), HealthHandler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     logger.info("Health server listening on port %d", port)
 
 
-# ─── Supervisor Loop ───────────────────────────────────────────────────────────
+# ─── Dashboard (Flask) ──────────────────────────────────────────────────────────
+
+DASHBOARD_HTML = """<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nandi AI — Admin Dashboard</title>
+  <style>
+    :root {
+      --bg: #0f172a; --card: #1e293b; --text: #f1f5f9;
+      --muted: #94a3b8; --accent: #10b981; --accent2: #f59e0b;
+      --danger: #ef4444; --border: #334155;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+    header { background: var(--card); border-bottom: 1px solid var(--border); padding: 1.25rem 2rem; display: flex; align-items: center; justify-content: space-between; }
+    header h1 { font-size: 1.5rem; display: flex; align-items: center; gap: 0.5rem; }
+    .live { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; color: var(--muted); }
+    .live-dot { width: 8px; height: 8px; background: var(--accent); border-radius: 50%; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+    .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1.25rem; margin-bottom: 2rem; }
+    .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; transition: transform .15s; }
+    .stat-card:hover { transform: translateY(-2px); }
+    .stat-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 0.5rem; }
+    .stat-value { font-size: 2rem; font-weight: 700; }
+    .stat-sub { font-size: 0.8rem; color: var(--muted); margin-top: 0.25rem; }
+    .section { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; margin-bottom: 1.25rem; }
+    .section h2 { font-size: 1.1rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    th, td { text-align: left; padding: 0.75rem; border-bottom: 1px solid var(--border); }
+    th { color: var(--muted); font-weight: 500; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; }
+    .model-badge { display: inline-block; padding: 0.2rem 0.5rem; border-radius: 999px; font-size: 0.75rem; font-weight: 500; background: rgba(16,185,129,.15); color: var(--accent); }
+    .uptime { font-family: 'SF Mono', monospace; color: var(--muted); font-size: 0.85rem; }
+    footer { text-align: center; padding: 2rem; color: var(--muted); font-size: 0.8rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>👋 Nandi AI — Admin Dashboard</h1>
+    <div class="live"><span class="live-dot"></span> Bot is online</div>
+  </header>
+
+  <div class="container">
+    <div class="grid">
+      <div class="stat-card">
+        <div class="stat-label">Active Users</div>
+        <div class="stat-value">{{ stats.active_users }}</div>
+        <div class="stat-sub">unique chat sessions</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Messages Received</div>
+        <div class="stat-value">{{ stats.total_messages }}</div>
+        <div class="stat-sub">since last restart</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Errors</div>
+        <div class="stat-value" style="color:{% if stats.errors > 0 %}var(--danger){% else %}var(--accent){% endif %}">{{ stats.errors }}</div>
+        <div class="stat-sub">total failures</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Uptime</div>
+        <div class="stat-value uptime">{{ stats.uptime }}</div>
+        <div class="stat-sub">HH:MM:SS</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>📊 Model Usage</h2>
+      <table>
+        <tr><th>Model</th><th>ID</th><th>Active Users</th><th>Description</th></tr>
+        {% for m in models %}
+        <tr>
+          <td><span class="model-badge">{{ m.label }}</span></td>
+          <td>{{ m.id }}</td>
+          <td>{{ m.active_users }}</td>
+          <td style="color:var(--muted)">{{ m.description }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+
+    <div class="section">
+      <h2>💬 Recent Conversations</h2>
+      {% if conversations %}
+      <table>
+        <tr><th>User ID</th><th>Model</th><th>Messages</th><th>Last Activity</th></tr>
+        {% for c in conversations %}
+        <tr>
+          <td>{{ c.user_id }}</td>
+          <td><span class="model-badge">{{ c.model }}</span></td>
+          <td>{{ c.message_count }}</td>
+          <td style="color:var(--muted)">{{ c.last_message }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+      {% else %}
+      <p style="color:var(--muted)">No active conversations yet.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <footer>
+    Nandi AI — Admin Dashboard &middot; Developer: Animesh Nandi &middot; <span class="uptime">Updated {{ stats.now }}</span>
+  </footer>
+</body>
+</html>"""
+
+flask_app = Flask(__name__)
+dashboard_start_time = time.time()
+
+
+def fmt_uptime(seconds: float) -> str:
+    hrs, rem = divmod(int(seconds), 3600)
+    mins, secs = divmod(rem, 60)
+    return f"{hrs:02d}:{mins:02d}:{secs:02d}"
+
+
+def get_dashboard_data() -> dict:
+    uptime = time.time() - dashboard_start_time
+
+    model_user_counts = {"1": 0, "2": 0}
+    for uid, key in state.user_model_keys.items():
+        if key in model_user_counts:
+            model_user_counts[key] += 1
+
+    conversations = []
+    for uid, hist in state.conversation_histories.items():
+        if not hist:
+            continue
+        key = state.user_model_keys.get(uid, state.DEFAULT_MODEL_KEY)
+        model_name = state.MODELS[key]["label"]
+        last = hist[-1]
+        last_text = last["content"][:60] + "..." if len(last["content"]) > 60 else last["content"]
+        conversations.append({
+            "user_id": uid,
+            "model": model_name,
+            "message_count": len(hist),
+            "last_message": last_text,
+        })
+
+    models = []
+    for key, m in state.MODELS.items():
+        models.append({
+            "id": m["id"],
+            "label": m["label"],
+            "description": m["description"],
+            "active_users": model_user_counts.get(key, 0),
+        })
+
+    return {
+        "stats": {
+            "active_users": len(state.active_users),
+            "total_messages": state.total_messages_received,
+            "errors": state.errors_count,
+            "uptime": fmt_uptime(uptime),
+            "now": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        },
+        "models": models,
+        "conversations": conversations,
+    }
+
+
+@flask_app.route("/")
+def dashboard():
+    from flask import render_template_string
+    data = get_dashboard_data()
+    return render_template_string(DASHBOARD_HTML, **data)
+
+
+@flask_app.route("/api/stats")
+def api_stats():
+    from flask import jsonify
+    return jsonify({"status": "ok", "bot": "Nandi AI", **get_dashboard_data()})
+
+
+@flask_app.route("/api/health")
+def api_health():
+    from flask import jsonify
+    return jsonify({"status": "ok"})
+
+
+def start_dashboard(port: int = 5001) -> None:
+    thread = threading.Thread(
+        target=lambda: flask_app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False),
+        daemon=True,
+    )
+    thread.start()
+    logger.info("Dashboard server listening on port %d", port)
+
+
+# ─── Supervisor Loop ──────────────────────────────────────────────────────────
 
 def run_bot() -> None:
-    """Start the Telegram bot (blocking call)."""
     app = (
         Application.builder()
         .token(TELEGRAM_BOT_TOKEN)
@@ -288,17 +465,14 @@ def run_bot() -> None:
 
 
 def main() -> None:
-    """Start the health server and supervise the bot with auto-restart."""
-    logger.info("Starting Nandi AI bot supervisor...")
-
-    # Start keep-alive HTTP server in background
+    logger.info("Starting Nandi AI bot + dashboard...")
     start_health_server(port=9000)
+    start_dashboard(port=5001)
 
-    restart_delay = 5  # seconds between restarts
-    max_restarts = 0   # 0 = unlimited
+    restart_delay = 5
     restart_count = 0
 
-    while max_restarts == 0 or restart_count < max_restarts:
+    while True:
         try:
             run_bot()
         except KeyboardInterrupt:
@@ -309,7 +483,6 @@ def main() -> None:
             logger.error("Bot crashed: %s", exc, exc_info=True)
             logger.info("Restarting in %d seconds... (restart #%d)", restart_delay, restart_count)
             time.sleep(restart_delay)
-            # Exponential back-off up to 60s
             restart_delay = min(restart_delay * 2, 60)
 
 
