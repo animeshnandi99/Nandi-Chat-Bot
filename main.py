@@ -438,6 +438,9 @@ flask_app = Flask(__name__)
 flask_app.secret_key = os.environ.get("SESSION_SECRET", "nandi-ai-default-secret")
 dashboard_start_time = time.time()
 
+# Global reference to the Telegram Application (set by run_bot)
+_telegram_app = None  # type: Application | None
+
 
 def fmt_uptime(seconds: float) -> str:
     hrs, rem = divmod(int(seconds), 3600)
@@ -591,7 +594,6 @@ def api_broadcast():
     if not message:
         return jsonify({"ok": False, "error": "Empty message"})
 
-    import asyncio
     if target_uid is not None:
         target_set = {int(target_uid)}
     elif scope == "active":
@@ -607,13 +609,24 @@ def api_broadcast():
         if uid in state.blocked_users:
             continue
         try:
-            asyncio.run(app.bot.send_message(chat_id=uid, text="[Admin]\n" + message))
+            _send_telegram_sync(uid, "[Admin]\n" + message)
             sent += 1
         except Exception as e:
             failed += 1
             logger.warning("Dashboard broadcast failed to %d: %s", uid, e)
     _log_event("broadcast", f"Broadcast ({scope}) to {sent} users")
     return jsonify({"ok": True, "sent": sent, "failed": failed})
+
+
+def _send_telegram_sync(chat_id: int, text: str) -> None:
+    """Send a Telegram message via direct HTTP (sync, no asyncio needed)."""
+    import urllib.request
+    import json
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    payload = json.dumps({"chat_id": chat_id, "text": text}).encode("utf-8")
+    req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"}, method="POST")
+    with urllib.request.urlopen(req, timeout=15) as resp:
+        resp.read()
 
 
 @flask_app.route("/api/block-user", methods=["POST"])
@@ -714,27 +727,28 @@ def start_dashboard(port: int = 5001) -> None:
 # ─── Supervisor Loop ──────────────────────────────────────────────────────────
 
 def run_bot() -> None:
-    app = (
+    global _telegram_app
+    _telegram_app = (
         Application.builder()
         .token(TELEGRAM_BOT_TOKEN)
         .post_init(post_init)
         .build()
     )
 
-    app.add_handler(CommandHandler("start",      start_handler))
-    app.add_handler(CommandHandler("help",       help_handler))
-    app.add_handler(CommandHandler("model",      model_handler))
-    app.add_handler(CommandHandler("status",     status_handler))
-    app.add_handler(CommandHandler("clear",      clear_handler))
-    app.add_handler(CommandHandler("feedback",   feedback_handler))
-    app.add_handler(CommandHandler("users",      users_handler))
-    app.add_handler(CommandHandler("broadcast",  broadcast_handler))
-    app.add_handler(CommandHandler("feedbacks",  feedbacks_handler))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message_handler))
-    app.add_error_handler(error_handler)
+    _telegram_app.add_handler(CommandHandler("start",      start_handler))
+    _telegram_app.add_handler(CommandHandler("help",       help_handler))
+    _telegram_app.add_handler(CommandHandler("model",      model_handler))
+    _telegram_app.add_handler(CommandHandler("status",     status_handler))
+    _telegram_app.add_handler(CommandHandler("clear",      clear_handler))
+    _telegram_app.add_handler(CommandHandler("feedback",   feedback_handler))
+    _telegram_app.add_handler(CommandHandler("users",      users_handler))
+    _telegram_app.add_handler(CommandHandler("broadcast",  broadcast_handler))
+    _telegram_app.add_handler(CommandHandler("feedbacks",  feedbacks_handler))
+    _telegram_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message_handler))
+    _telegram_app.add_error_handler(error_handler)
 
     logger.info("Bot polling started.")
-    app.run_polling(allowed_updates=Update.ALL_TYPES)
+    _telegram_app.run_polling(allowed_updates=Update.ALL_TYPES)
 
 
 def main() -> None:
