@@ -28,3 +28,9 @@ all_users: set[int] = set()
 errors_count: int = 0
 user_feedbacks: list[dict] = []
 started_users: set[int] = set()
+
+# ─── Admin Controls ─────────────────────────────────────────────────────────
+blocked_users: set[int] = set()
+
+# ─── Activity Log ─────────────────────────────────────────────────────────────
+system_logs: list[dict] = []  # Each entry: {time, type, message}

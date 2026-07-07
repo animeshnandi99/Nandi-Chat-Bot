@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Nandi AI Dashboard</title>
 <style>
-:root{--bg:#0b0f19;--card:#111827;--text:#e2e8f0;--muted:#64748b;--accent:#22c55e;--accent2:#3b82f6;--accent3:#f59e0b;--danger:#ef4444;--border:#1e293b;--card2:#0f172a;}
+:root{--bg:#0b0f19;--card:#111827;--text:#e2e8f0;--muted:#64748b;--accent:#22c55e;--accent2:#3b82f6;--accent3:#f59e0b;--danger:#ef4444;--border:#1e293b;--card2:#0f172a;--purple:#a855f7;}
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.5}
 header{background:var(--card);border-bottom:1px solid var(--border);padding:1rem 2rem;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10}
@@ -13,43 +13,72 @@ header h1{font-size:1.3rem;display:flex;align-items:center;gap:.5rem}
 .live{display:inline-flex;align-items:center;gap:.4rem;font-size:.8rem;color:var(--muted)}
 .live-dot{width:8px;height:8px;background:var(--accent);border-radius:50%;animation:pulse 2s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
-.container{max-width:1400px;margin:0 auto;padding:1.5rem 2rem}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:1rem;margin-bottom:1.5rem}
+.container{max-width:1700px;margin:0 auto;padding:1.5rem 2rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:1rem;margin-bottom:1.5rem}
 .stat-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1.25rem;transition:all .15s}
 .stat-card:hover{transform:translateY(-2px);border-color:var(--muted)}
 .stat-label{font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:.4rem}
-.stat-value{font-size:1.8rem;font-weight:700}
+.stat-value{font-size:1.6rem;font-weight:700}
 .stat-sub{font-size:.75rem;color:var(--muted);margin-top:.2rem}
-.row{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem}
-@media(max-width:900px){.row{grid-template-columns:1fr}}
+.main{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem}
+@media(max-width:1100px){.main{grid-template-columns:1fr}}
 .section{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1.25rem;margin-bottom:1rem}
-.section h2{font-size:1rem;margin-bottom:.75rem;display:flex;align-items:center;gap:.4rem;color:var(--text)}
+.section h2{font-size:1rem;margin-bottom:.75rem;display:flex;align-items:center;gap:.4rem;color:var(--text);flex-wrap:wrap}
 .section h2 span{color:var(--muted);font-size:.8rem;font-weight:400;margin-left:auto}
+.full{grid-column:1 / -1}
 table{width:100%;border-collapse:collapse;font-size:.85rem}
-th,td{text-align:left;padding:.6rem .75rem;border-bottom:1px solid var(--border)}
+th,td{text-align:left;padding:.45rem .55rem;border-bottom:1px solid var(--border)}
 th{color:var(--muted);font-weight:500;font-size:.7rem;text-transform:uppercase;letter-spacing:.06em}
 tr:hover td{background:rgba(255,255,255,.02)}
-.badge{display:inline-block;padding:.15rem .5rem;border-radius:999px;font-size:.7rem;font-weight:500}
+.badge{display:inline-block;padding:.12rem .4rem;border-radius:999px;font-size:.68rem;font-weight:500}
 .badge-green{background:rgba(34,197,94,.15);color:var(--accent)}
 .badge-blue{background:rgba(59,130,246,.15);color:var(--accent2)}
 .badge-amber{background:rgba(245,158,11,.15);color:var(--accent3)}
 .badge-red{background:rgba(239,68,68,.15);color:var(--danger)}
-.status-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:4px}
+.badge-purple{background:rgba(168,85,247,.15);color:var(--purple)}
+.badge-gray{background:rgba(100,116,139,.15);color:var(--muted)}
+.status-dot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:3px}
 .online{background:var(--accent)}.offline{background:var(--muted)}
-.btn{background:var(--accent2);color:#fff;border:none;border-radius:8px;padding:.5rem 1rem;font-size:.85rem;font-weight:600;cursor:pointer;transition:opacity .15s}
-.btn:hover{opacity:.9}.btn-danger{background:var(--danger)}
-.btn-sm{padding:.35rem .75rem;font-size:.75rem}
-textarea{width:100%;background:var(--card2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:.75rem;font-family:inherit;font-size:.9rem;resize:vertical;min-height:80px}
-textarea:focus{outline:none;border-color:var(--accent2)}
+.btn{background:var(--accent2);color:#fff;border:none;border-radius:8px;padding:.4rem .8rem;font-size:.78rem;font-weight:600;cursor:pointer;transition:opacity .15s;white-space:nowrap}
+.btn:hover{opacity:.9}.btn-danger{background:var(--danger)}.btn-amber{background:var(--accent3)}.btn-green{background:var(--accent)}.btn-purple{background:var(--purple)}
+.btn-sm{padding:.3rem .55rem;font-size:.72rem}.btn-xs{padding:.2rem .45rem;font-size:.7rem}
+input,textarea,select{width:100%;background:var(--card2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:.5rem .6rem;font-family:inherit;font-size:.85rem}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent2)}
+textarea{resize:vertical;min-height:60px}
 .empty{color:var(--muted);font-size:.9rem;padding:1rem 0;text-align:center}
 footer{text-align:center;padding:1.5rem;color:var(--muted);font-size:.75rem;border-top:1px solid var(--border);margin-top:1rem}
-#toast{position:fixed;bottom:1rem;right:1rem;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:.75rem 1rem;font-size:.85rem;z-index:100;opacity:0;transition:opacity .3s;pointer-events:none}
+#toast{position:fixed;bottom:1rem;right:1rem;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:.75rem 1rem;font-size:.85rem;z-index:100;opacity:0;transition:opacity .3s}
 #toast.show{opacity:1}
-.tabs{display:flex;gap:.5rem;margin-bottom:.75rem;border-bottom:1px solid var(--border);padding-bottom:.5rem}
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:50;align-items:center;justify-content:center;padding:2rem}
+.modal.show{display:flex}
+.modal-box{background:var(--card);border:1px solid var(--border);border-radius:12px;max-width:750px;width:100%;max-height:85vh;overflow:hidden;display:flex;flex-direction:column}
+.modal-header{padding:1rem 1.25rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.modal-body{padding:1rem 1.25rem;overflow-y:auto;flex:1}
+.modal-close{background:none;border:none;color:var(--muted);font-size:1.2rem;cursor:pointer}
+.chat-msg{padding:.5rem .6rem;border-radius:8px;margin-bottom:.4rem;font-size:.85rem;max-width:92%}
+.chat-user{background:var(--accent2);color:#fff;margin-left:auto;text-align:right}
+.chat-bot{background:var(--card2);border:1px solid var(--border)}
+.chat-role{font-size:.65rem;text-transform:uppercase;letter-spacing:.06em;opacity:.7;margin-bottom:.15rem}
+.toolbar{display:flex;gap:.5rem;margin-bottom:.5rem;flex-wrap:wrap;align-items:center}
+.toolbar input,.toolbar select{max-width:160px}
+.scroll-list{max-height:420px;overflow-y:auto}
+.log-item{padding:.4rem .55rem;border-bottom:1px solid var(--border);font-size:.78rem;display:flex;gap:.5rem;align-items:flex-start}
+.log-time{color:var(--muted);font-size:.7rem;white-space:nowrap;min-width:110px}
+.log-msg{flex:1;word-break:break-word}
+.log-tag{padding:.1rem .3rem;border-radius:4px;font-size:.68rem;font-weight:500}
+.action-bar{display:flex;gap:.35rem;flex-wrap:wrap}
+.model-select{background:var(--card2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.25rem .4rem;font-size:.72rem;max-width:120px}
+.modal-overlay{position:absolute;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:60}
+.modal-overlay.show{display:flex}
+.confirm-box{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1.5rem;max-width:360px;width:100%;text-align:center}
+.confirm-box p{margin-bottom:1rem;font-size:.9rem}
+.confirm-btns{display:flex;gap:.5rem;justify-content:center}
+.tab-bar{display:flex;gap:.5rem;margin-bottom:.75rem;border-bottom:1px solid var(--border);padding-bottom:.5rem;flex-wrap:wrap}
 .tab-btn{background:none;border:none;color:var(--muted);padding:.4rem .8rem;font-size:.85rem;cursor:pointer;border-radius:6px}
 .tab-btn:hover{color:var(--text);background:rgba(255,255,255,.05)}
 .tab-btn.active{color:var(--accent2);background:rgba(59,130,246,.1)}
-.tab-panel{display:none}.tab-panel.active{display:block}
+.tab-content{display:none}.tab-content.active{display:block}
+.user-actions{display:flex;gap:.3rem;flex-wrap:wrap}
 </style>
 </head>
 <body>
@@ -62,56 +91,68 @@ footer{text-align:center;padding:1.5rem;color:var(--muted);font-size:.75rem;bord
 </header>
 
 <div class="container">
+<!-- Stats -->
 <div class="grid">
-<div class="stat-card">
-<div class="stat-label">All Users</div>
-<div class="stat-value" id="stat-all">{{ stats.all_users }}</div>
-<div class="stat-sub">total registered</div>
-</div>
-<div class="stat-card">
-<div class="stat-label">Active Now</div>
-<div class="stat-value" id="stat-active">{{ stats.active_users }}</div>
-<div class="stat-sub">currently chatting</div>
-</div>
-<div class="stat-card">
-<div class="stat-label">Messages</div>
-<div class="stat-value" id="stat-msgs">{{ stats.total_messages }}</div>
-<div class="stat-sub">since restart</div>
-</div>
-<div class="stat-card">
-<div class="stat-label">Started Bot</div>
-<div class="stat-value" id="stat-started">{{ stats.started_users }}</div>
-<div class="stat-sub">used /start</div>
-</div>
-<div class="stat-card">
-<div class="stat-label">Errors</div>
-<div class="stat-value" id="stat-errors" style="color:{% if stats.errors>0 %}var(--danger){% else %}var(--accent){% endif %}">{{ stats.errors }}</div>
-<div class="stat-sub">total failures</div>
-</div>
-<div class="stat-card">
-<div class="stat-label">Uptime</div>
-<div class="stat-value" style="font-size:1.4rem;font-family:monospace" id="stat-uptime">{{ stats.uptime }}</div>
-<div class="stat-sub">HH:MM:SS</div>
-</div>
+<div class="stat-card"><div class="stat-label">All Users</div><div class="stat-value" id="st-all">{{ stats.all_users }}</div><div class="stat-sub">total registered</div></div>
+<div class="stat-card"><div class="stat-label">Active Now</div><div class="stat-value" id="st-active">{{ stats.active_users }}</div><div class="stat-sub">currently chatting</div></div>
+<div class="stat-card"><div class="stat-label">Messages</div><div class="stat-value" id="st-msgs">{{ stats.total_messages }}</div><div class="stat-sub">since restart</div></div>
+<div class="stat-card"><div class="stat-label">Started Bot</div><div class="stat-value" id="st-started">{{ stats.started_users }}</div><div class="stat-sub">used /start</div></div>
+<div class="stat-card"><div class="stat-label">Blocked</div><div class="stat-value" id="st-blocked" style="color:var(--danger)">{{ stats.blocked_users }}</div><div class="stat-sub">restricted users</div></div>
+<div class="stat-card"><div class="stat-label">Feedback</div><div class="stat-value" id="st-feed">{{ feedbacks|length }}</div><div class="stat-sub">submissions</div></div>
+<div class="stat-card"><div class="stat-label">Errors</div><div class="stat-value" id="st-errors" style="color:{% if stats.errors>0 %}var(--danger){% else %}var(--accent){% endif %}">{{ stats.errors }}</div><div class="stat-sub">total failures</div></div>
+<div class="stat-card"><div class="stat-label">Uptime</div><div class="stat-value" style="font-size:1.4rem;font-family:monospace" id="st-uptime">{{ stats.uptime }}</div><div class="stat-sub">HH:MM:SS</div></div>
 </div>
 
-<div class="row">
-<div class="section">
+<!-- Row 1: Users + Broadcast -->
+<div class="main">
+<div class="section" style="display:flex;flex-direction:column;gap:1rem">
 <h2>Users <span id="users-count">{{ users|length }}</span></h2>
+<div class="toolbar">
+<input type="text" id="user-search" placeholder="Search user ID..." oninput="filterUsers()">
+<select id="user-filter" onchange="filterUsers()">
+<option value="all">All Users</option>
+<option value="online">Online Only</option>
+<option value="offline">Offline Only</option>
+<option value="started">Started Bot</option>
+<option value="blocked">Blocked</option>
+</select>
+<button class="btn btn-sm" onclick="exportUsers()">Export CSV</button>
+</div>
 {% if users %}
-<table>
-<tr><th>User</th><th>Status</th><th>Model</th><th>Msgs</th><th>Actions</th></tr>
+<table id="users-table">
+<tr><th>User ID</th><th>Status</th><th>Model</th><th>Msgs</th><th colspan="3">Actions</th></tr>
 {% for u in users %}
-<tr>
+<tr class="user-row" data-online="{{ u.online|lower }}" data-started="{{ u.started|lower }}" data-blocked="{{ u.blocked|lower }}" data-id="{{ u.id }}">
 <td><code>{{ u.id }}</code></td>
 <td>
 {% if u.online %}<span class="badge badge-green"><span class="status-dot online"></span>ON</span>
-{% else %}<span class="badge"><span class="status-dot offline"></span>OFF</span>{% endif %}
+{% else %}<span class="badge badge-gray"><span class="status-dot offline"></span>OFF</span>{% endif %}
 {% if u.started %}<span class="badge badge-amber">START</span>{% endif %}
+{% if u.blocked %}<span class="badge badge-red">BLOCKED</span>{% endif %}
 </td>
 <td><span class="badge badge-blue">{{ u.model }}</span></td>
 <td>{{ u.messages }}</td>
-<td><button class="btn btn-sm" onclick="broadcastTo({{ u.id }})">Msg</button></td>
+<td>
+<div class="user-actions">
+<button class="btn btn-xs" onclick="viewChat({{ u.id }})">Chat</button>
+<button class="btn btn-xs btn-amber" onclick="msgUser({{ u.id }})">Msg</button>
+<select class="model-select" onchange="setModel({{ u.id }},this.value)">
+<option value="1" {% if u.model_key=='1' %}selected{% endif %}>70B</option>
+<option value="2" {% if u.model_key=='2' %}selected{% endif %}>8B</option>
+</select>
+</div>
+</td>
+<td>
+<div class="user-actions">
+{% if u.blocked %}
+<button class="btn btn-xs btn-green" onclick="toggleBlock({{ u.id }},false)">Unblock</button>
+{% else %}
+<button class="btn btn-xs btn-danger" onclick="toggleBlock({{ u.id }},true)">Block</button>
+{% endif %}
+<button class="btn btn-xs" onclick="kickUser({{ u.id }})">Kick</button>
+<button class="btn btn-xs btn-danger" onclick="clearUser({{ u.id }})">Clear</button>
+</div>
+</td>
 </tr>
 {% endfor %}
 </table>
@@ -122,17 +163,19 @@ footer{text-align:center;padding:1.5rem;color:var(--muted);font-size:.75rem;bord
 
 <div class="section">
 <h2>Broadcast</h2>
-<p style="color:var(--muted);font-size:.8rem;margin-bottom:.5rem">Send message to ALL users instantly</p>
+<p style="color:var(--muted);font-size:.8rem;margin-bottom:.5rem">Send message to users instantly from dashboard</p>
 <textarea id="bc-text" placeholder="Type your broadcast message..."></textarea>
-<div style="display:flex;gap:.5rem;margin-top:.5rem">
-<button class="btn" onclick="sendBroadcast()">Send to All</button>
-<button class="btn" style="background:var(--accent3)" onclick="sendBroadcastActive()">Active Only</button>
+<div style="display:flex;gap:.5rem;margin-top:.5rem;flex-wrap:wrap">
+<button class="btn" onclick="sendBroadcast('all')">All Users</button>
+<button class="btn btn-amber" onclick="sendBroadcast('active')">Active Only</button>
+<button class="btn btn-green" onclick="sendBroadcast('started')">Started Only</button>
 </div>
 <div id="bc-result" style="margin-top:.5rem;font-size:.8rem;color:var(--muted)"></div>
 </div>
 </div>
 
-<div class="row">
+<!-- Row 2: Models + System Controls -->
+<div class="main">
 <div class="section">
 <h2>Model Usage</h2>
 <table>
@@ -146,35 +189,66 @@ footer{text-align:center;padding:1.5rem;color:var(--muted);font-size:.75rem;bord
 </tr>
 {% endfor %}
 </table>
+<div style="margin-top:.75rem;padding-top:.5rem;border-top:1px solid var(--border)">
+<p style="font-size:.8rem;color:var(--muted)">Default: LLaMA 3.3 70B Versatile. Switch per user in the Users table.</p>
+</div>
 </div>
 
 <div class="section">
-<div class="tabs">
-<button class="tab-btn active" onclick="showTab('tab-feed')">Feedback</button>
-<button class="tab-btn" onclick="showTab('tab-conv')">Conversations</button>
+<h2>System Controls</h2>
+<table>
+<tr><td style="color:var(--muted)">Bot Name</td><td>Nandi AI</td></tr>
+<tr><td style="color:var(--muted)">Developer</td><td>Animesh Nandi</td></tr>
+<tr><td style="color:var(--muted)">Owner ID</td><td><code>8504907703</code></td></tr>
+<tr><td style="color:var(--muted)">Dashboard Port</td><td>5001</td></tr>
+<tr><td style="color:var(--muted)">Health Port</td><td>9000</td></tr>
+<tr><td style="color:var(--muted)">Max History</td><td>20 messages / user</td></tr>
+<tr><td style="color:var(--muted)">Models</td><td>LLaMA 3.3 70B, LLaMA 3.1 8B</td></tr>
+<tr><td style="color:var(--muted)">Provider</td><td>Groq API</td></tr>
+</table>
+<div style="margin-top:.75rem;display:flex;gap:.5rem;flex-wrap:wrap">
+<button class="btn btn-sm" onclick="window.open('/api/health','_blank')">Health Check</button>
+<button class="btn btn-sm" onclick="window.open('/api/stats','_blank')">Raw JSON</button>
+<button class="btn btn-sm btn-danger" onclick="resetStats()">Reset Stats</button>
 </div>
-<div class="tab-panel active" id="tab-feed">
+</div>
+</div>
+
+<!-- Row 3: Tabs -->
+<div class="section full">
+<div class="tab-bar">
+<button class="tab-btn active" data-tab="tab-feed" onclick="switchTab(this)">Feedback ({{ feedbacks|length }})</button>
+<button class="tab-btn" data-tab="tab-conv" onclick="switchTab(this)">Conversations</button>
+<button class="tab-btn" data-tab="tab-logs" onclick="switchTab(this)">System Logs</button>
+<button class="tab-btn" data-tab="tab-raw" onclick="switchTab(this)">Raw Data</button>
+<button class="tab-btn" data-tab="tab-blocked" onclick="switchTab(this)">Blocked Users</button>
+<div style="margin-left:auto"><button class="btn btn-sm" onclick="exportAll()">Export All</button></div>
+</div>
+
+<div class="tab-content active" id="tab-feed">
 {% if feedbacks %}
 <table>
-<tr><th>#</th><th>User</th><th>Time</th><th>Message</th></tr>
+<tr><th>#</th><th>User</th><th>Time</th><th>Message</th><th>Action</th></tr>
 {% for f in feedbacks %}
-<tr><td>{{ f.idx }}</td><td><code>{{ f.user_id }}</code></td><td style="color:var(--muted);font-size:.75rem">{{ f.time }}</td><td style="font-size:.85rem">{{ f.text }}</td></tr>
+<tr><td>{{ f.idx }}</td><td><code>{{ f.user_id }}</code></td><td style="color:var(--muted);font-size:.75rem">{{ f.time }}</td><td style="font-size:.85rem">{{ f.text }}</td><td><button class="btn btn-xs" onclick="msgUser({{ f.user_id }})">Reply</button></td></tr>
 {% endfor %}
 </table>
 {% else %}
 <p class="empty">No feedback yet</p>
 {% endif %}
 </div>
-<div class="tab-panel" id="tab-conv">
+
+<div class="tab-content" id="tab-conv">
 {% if conversations %}
 <table>
-<tr><th>User</th><th>Model</th><th>Msgs</th><th>Last Message</th></tr>
+<tr><th>User</th><th>Model</th><th>Msgs</th><th>Last Message</th><th>Action</th></tr>
 {% for c in conversations %}
 <tr>
 <td><code>{{ c.user_id }}</code></td>
 <td><span class="badge badge-blue">{{ c.model }}</span></td>
 <td>{{ c.message_count }}</td>
 <td style="color:var(--muted);font-size:.85rem">{{ c.last_message }}</td>
+<td><button class="btn btn-xs" onclick="viewChat({{ c.user_id }})">View Chat</button></td>
 </tr>
 {% endfor %}
 </table>
@@ -182,24 +256,227 @@ footer{text-align:center;padding:1.5rem;color:var(--muted);font-size:.75rem;bord
 <p class="empty">No conversations yet</p>
 {% endif %}
 </div>
+
+<div class="tab-content" id="tab-logs">
+<div class="scroll-list" id="logs-container">
+{% if logs %}
+{% for l in logs %}
+<div class="log-item">
+<span class="log-time">{{ l.time }}</span>
+<span class="log-tag badge-{% if l.type=='admin' %}blue{% elif l.type=='block' %}red{% elif l.type=='broadcast' %}amber{% else %}gray{% endif %}">{{ l.type }}</span>
+<span class="log-msg">{{ l.message }}</span>
 </div>
+{% endfor %}
+{% else %}
+<p class="empty">No system logs yet</p>
+{% endif %}
 </div>
 </div>
 
-<footer>
-Nandi AI Dashboard &middot; Developer: Animesh Nandi &middot; <span id="updated">{{ stats.now }}</span>
-</footer>
+<div class="tab-content" id="tab-blocked">
+<div id="blocked-list">
+{% set has_blocked = false %}
+{% for u in users %}{% if u.blocked %}{% set has_blocked = true %}{% endif %}{% endfor %}
+{% if has_blocked %}
+<table>
+<tr><th>User ID</th><th>Model</th><th>Msgs</th><th>Action</th></tr>
+{% for u in users %}{% if u.blocked %}
+<tr><td><code>{{ u.id }}</code></td><td><span class="badge badge-blue">{{ u.model }}</span></td><td>{{ u.messages }}</td><td><button class="btn btn-xs btn-green" onclick="toggleBlock({{ u.id }},false)">Unblock</button></td></tr>
+{% endif %}{% endfor %}
+</table>
+{% else %}
+<p class="empty">No blocked users</p>
+{% endif %}
+</div>
+</div>
 
+<div class="tab-content" id="tab-raw">
+<div class="toolbar">
+<button class="btn btn-sm" onclick="showRaw('stats')">Stats</button>
+<button class="btn btn-sm" onclick="showRaw('users')">Users</button>
+<button class="btn btn-sm" onclick="showRaw('feedbacks')">Feedback</button>
+<button class="btn btn-sm" onclick="showRaw('models')">Models</button>
+<button class="btn btn-sm" onclick="showRaw('conversations')">Conversations</button>
+<button class="btn btn-sm" onclick="showRaw('logs')">Logs</button>
+</div>
+<pre id="raw-display" style="background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:.75rem;font-size:.8rem;overflow-x:auto;max-height:480px">Click a button above to view raw JSON</pre>
+</div>
+</div>
+
+</div>
+
+<footer>Nandi AI Dashboard &middot; Developer: Animesh Nandi &middot; <span id="updated">{{ stats.now }}</span></footer>
 <div id="toast"></div>
 
+<!-- Chat Modal -->
+<div class="modal" id="chat-modal"><div class="modal-box">
+<div class="modal-header"><h3 id="chat-title">Conversation</h3><button class="modal-close" onclick="closeModal()">&times;</button></div>
+<div class="modal-body" id="chat-body"></div>
+</div></div>
+
+<!-- Msg Modal -->
+<div class="modal" id="msg-modal"><div class="modal-box">
+<div class="modal-header"><h3 id="msg-title">Send Message</h3><button class="modal-close" onclick="closeModal()">&times;</button></div>
+<div class="modal-body">
+<textarea id="msg-text" placeholder="Type your message..."></textarea>
+<div style="display:flex;gap:.5rem;margin-top:.5rem">
+<button class="btn" onclick="sendDirectMsg()">Send</button>
+<button class="btn btn-danger" onclick="closeModal()">Cancel</button>
+</div>
+<div id="msg-result" style="margin-top:.5rem;font-size:.8rem;color:var(--muted)"></div>
+</div>
+</div></div>
+
 <script>
+let allUsers={{ users_json|safe }};
+let allData={{ all_json|safe }};
+let currentMsgUser=null;
+
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000)}
-function showTab(id){document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));event.target.classList.add('active');document.getElementById(id).classList.add('active')}
-function broadcastTo(uid){const t=document.getElementById('bc-text');t.value='[To user '+uid+'] ';t.focus()}
-async function sendBroadcast(){const txt=document.getElementById('bc-text').value.trim();if(!txt)return showToast('Enter a message');const r=await fetch('/api/broadcast',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:txt,scope:'all'})});const d=await r.json();document.getElementById('bc-result').textContent=d.ok?'Sent to '+d.sent+' users (failed: '+d.failed+')':'Error: '+d.error;showToast(d.ok?'Broadcast sent!':'Broadcast failed')}
-async function sendBroadcastActive(){const txt=document.getElementById('bc-text').value.trim();if(!txt)return showToast('Enter a message');const r=await fetch('/api/broadcast',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:txt,scope:'active'})});const d=await r.json();document.getElementById('bc-result').textContent=d.ok?'Sent to '+d.sent+' active users (failed: '+d.failed+')':'Error: '+d.error;showToast(d.ok?'Broadcast sent!':'Broadcast failed')}
-async function refreshStats(){try{const r=await fetch('/api/stats');const d=await r.json();if(d.stats){document.getElementById('stat-all').textContent=d.stats.all_users||0;document.getElementById('stat-active').textContent=d.stats.active_users||0;document.getElementById('stat-msgs').textContent=d.stats.total_messages||0;document.getElementById('stat-started').textContent=d.stats.started_users||0;document.getElementById('stat-errors').textContent=d.stats.errors||0;document.getElementById('stat-uptime').textContent=d.stats.uptime||'00:00:00';document.getElementById('updated').textContent=d.stats.now||'';}}catch(e){}}
+function switchTab(btn){document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));document.querySelectorAll('.tab-content').forEach(p=>p.classList.remove('active'));btn.classList.add('active');document.getElementById(btn.dataset.tab).classList.add('active')}
+
+function filterUsers(){
+  const s=document.getElementById('user-search').value.toLowerCase();
+  const f=document.getElementById('user-filter').value;
+  document.querySelectorAll('.user-row').forEach(row=>{
+    const id=row.dataset.id;
+    const online=row.dataset.online==='true';
+    const started=row.dataset.started==='true';
+    const blocked=row.dataset.blocked==='true';
+    let show=id.includes(s);
+    if(f==='online') show=show&&online;
+    if(f==='offline') show=show&&!online;
+    if(f==='started') show=show&&started;
+    if(f==='blocked') show=show&&blocked;
+    row.style.display=show?'':'none';
+  });
+}
+
+function viewChat(uid){
+  document.getElementById('chat-title').textContent='User '+uid+' Conversation';
+  const body=document.getElementById('chat-body');
+  const hist=allData.conversations.find(c=>c.user_id===uid);
+  if(!hist||!hist.full_history||hist.full_history.length===0){
+    body.innerHTML='<p class="empty">No conversation history</p>';
+  } else {
+    body.innerHTML=hist.full_history.map(m=>{
+      const cls=m.role==='user'?'chat-user':'chat-bot';
+      return '<div class="chat-msg '+cls+'"><div class="chat-role">'+m.role+'</div>'+escapeHtml(m.content)+'</div>';
+    }).join('');
+  }
+  document.getElementById('chat-modal').classList.add('show');
+}
+
+function msgUser(uid){
+  currentMsgUser=uid;
+  document.getElementById('msg-title').textContent='Send to User '+uid;
+  document.getElementById('msg-text').value='';
+  document.getElementById('msg-result').textContent='';
+  document.getElementById('msg-modal').classList.add('show');
+}
+
+async function sendDirectMsg(){
+  const txt=document.getElementById('msg-text').value.trim();
+  if(!txt||!currentMsgUser) return showToast('Enter a message');
+  const r=await fetch('/api/broadcast',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:txt,scope:'user',user_id:currentMsgUser})});
+  const d=await r.json();
+  document.getElementById('msg-result').textContent=d.ok?'Sent!':'Error: '+d.error;
+  showToast(d.ok?'Message sent!':'Failed');
+}
+
+async function sendBroadcast(scope){
+  const txt=document.getElementById('bc-text').value.trim();
+  if(!txt) return showToast('Enter a message');
+  const r=await fetch('/api/broadcast',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:txt,scope:scope})});
+  const d=await r.json();
+  document.getElementById('bc-result').textContent=d.ok?'Sent to '+d.sent+' users (failed: '+d.failed+')':'Error: '+d.error;
+  showToast(d.ok?'Broadcast sent!':'Broadcast failed');
+}
+
+async function toggleBlock(uid,block){
+  if(!confirm((block?'Block':'Unblock')+' user '+uid+'?')) return;
+  const r=await fetch('/api/block-user',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_id:uid,action:block?'block':'unblock'})});
+  const d=await r.json();
+  showToast(d.ok?(block?'Blocked':'Unblocked')+' user '+uid:'Error');
+  if(d.ok) setTimeout(()=>location.reload(),600);
+}
+
+async function setModel(uid,key){
+  const r=await fetch('/api/set-model',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_id:uid,model_key:key})});
+  const d=await r.json();
+  showToast(d.ok?'Model updated for user '+uid:'Error');
+}
+
+async function kickUser(uid){
+  if(!confirm('Disconnect (kick) user '+uid+'?')) return;
+  const r=await fetch('/api/kick-user',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_id:uid})});
+  const d=await r.json();
+  showToast(d.ok?'User '+uid+' kicked':'Error');
+}
+
+async function clearUser(uid){
+  if(!confirm('Clear ALL conversation history for user '+uid+'?')) return;
+  const r=await fetch('/api/clear-user',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_id:uid})});
+  const d=await r.json();
+  showToast(d.ok?'Cleared user '+uid:'Error');
+  if(d.ok) setTimeout(()=>location.reload(),600);
+}
+
+async function resetStats(){
+  if(!confirm('Reset all stats (messages, errors, logs)? This cannot be undone.')) return;
+  const r=await fetch('/api/reset-stats',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({})});
+  const d=await r.json();
+  showToast(d.ok?'Stats reset':'Error');
+  if(d.ok) setTimeout(()=>location.reload(),800);
+}
+
+function closeModal(){document.querySelectorAll('.modal').forEach(m=>m.classList.remove('show'));currentMsgUser=null;}
+function showRaw(key){document.getElementById('raw-display').textContent=JSON.stringify(allData[key]||{},null,2);}
+function escapeHtml(t){const d=document.createElement('div');d.textContent=t;return d.innerHTML;}
+
+function exportUsers(){
+  let csv='UserID,Online,Started,Blocked,Model,Messages\n';
+  allUsers.forEach(u=>{csv+=u.id+','+(u.online?'Y':'N')+','+(u.started?'Y':'N')+','+(u.blocked?'Y':'N')+','+u.model+','+u.messages+'\n';});
+  const blob=new Blob([csv],{type:'text/csv'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='users.csv';a.click();
+}
+
+function exportAll(){
+  const blob=new Blob([JSON.stringify(allData,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='nandi-ai-data.json';a.click();
+}
+
+function renderLogs(){
+  const c=document.getElementById('logs-container');
+  if(!allData.logs||allData.logs.length===0){c.innerHTML='<p class="empty">No system logs</p>';return;}
+  c.innerHTML=allData.logs.map(l=>{
+    const cls=l.type==='admin'?'badge-blue':l.type==='block'?'badge-red':l.type==='broadcast'?'badge-amber':'badge-gray';
+    return '<div class="log-item"><span class="log-time">'+l.time+'</span><span class="log-tag '+cls+'">'+l.type+'</span><span class="log-msg">'+escapeHtml(l.message)+'</span></div>';
+  }).join('');
+}
+
+async function refreshStats(){
+  try{
+    const r=await fetch('/api/stats');
+    const d=await r.json();
+    if(d.stats){
+      document.getElementById('st-all').textContent=d.stats.all_users||0;
+      document.getElementById('st-active').textContent=d.stats.active_users||0;
+      document.getElementById('st-msgs').textContent=d.stats.total_messages||0;
+      document.getElementById('st-started').textContent=d.stats.started_users||0;
+      document.getElementById('st-blocked').textContent=d.stats.blocked_users||0;
+      document.getElementById('st-feed').textContent=(d.feedbacks||[]).length;
+      document.getElementById('st-errors').textContent=d.stats.errors||0;
+      document.getElementById('st-uptime').textContent=d.stats.uptime||'00:00:00';
+      document.getElementById('updated').textContent=d.stats.now||'';
+      if(d.users_json){allUsers=JSON.parse(d.users_json);}
+      if(d.all_json){allData=JSON.parse(d.all_json);renderLogs();}
+    }
+  }catch(e){}
+}
+
+renderLogs();
 setInterval(refreshStats,5000);
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
 </script>
 </body>
 </html>

@@ -306,10 +306,20 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     user_id = user.id
     user_message = update.message.text
 
+    # Blocked user check
+    if user_id in state.blocked_users:
+        await update.message.reply_text(
+            "Your access to Nandi AI has been restricted by the administrator."
+        )
+        _log_event("block", f"Blocked user {user_id} tried to message")
+        return
+
     # Update shared state for dashboard
     state.total_messages_received += 1
     state.active_users.add(user_id)
     state.all_users.add(user_id)
+
+    _log_event("msg", f"User {user_id}: {user_message[:40]}")
 
     logger.info(
         "Message from %s (id=%d) [model=%s]: %s",
@@ -336,6 +346,18 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     state.errors_count += 1
     logger.error("Unhandled exception: %s", context.error, exc_info=context.error)
+
+
+# ─── System Log Helper ───────────────────────────────────────────────────────
+
+def _log_event(event_type: str, message: str) -> None:
+    state.system_logs.insert(0, {
+        "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "type": event_type,
+        "message": message,
+    })
+    if len(state.system_logs) > 200:
+        state.system_logs = state.system_logs[:200]
 
 
 # ─── Bot Menu Registration ─────────────────────────────────────────────────────────────────
@@ -445,6 +467,7 @@ def get_dashboard_data() -> dict:
             "model": model_name,
             "message_count": len(hist),
             "last_message": last_text,
+            "full_history": hist,
         })
 
     models = []
@@ -463,7 +486,9 @@ def get_dashboard_data() -> dict:
             "id": uid,
             "online": uid in state.active_users,
             "started": uid in state.started_users,
+            "blocked": uid in state.blocked_users,
             "model": state.MODELS[key]["label"],
+            "model_key": key,
             "messages": len(state.conversation_histories.get(uid, [])),
         })
 
@@ -476,11 +501,14 @@ def get_dashboard_data() -> dict:
             "text": fb["text"][:200],
         })
 
-    return {
+    logs = state.system_logs[:50]
+
+    result = {
         "stats": {
             "active_users": len(state.active_users),
             "all_users": len(state.all_users),
             "started_users": len(state.started_users),
+            "blocked_users": len(state.blocked_users),
             "total_messages": state.total_messages_received,
             "errors": state.errors_count,
             "uptime": fmt_uptime(uptime),
@@ -491,7 +519,17 @@ def get_dashboard_data() -> dict:
         "users": users,
         "users_json": json.dumps(users),
         "feedbacks": feedbacks,
+        "logs": logs,
     }
+    result["all_json"] = json.dumps({
+        "stats": result["stats"],
+        "models": result["models"],
+        "conversations": result["conversations"],
+        "users": result["users"],
+        "feedbacks": result["feedbacks"],
+        "logs": result["logs"],
+    })
+    return result
 
 
 def check_auth():
@@ -549,22 +587,113 @@ def api_broadcast():
     data = request.get_json() or {}
     message = (data.get("message") or "").strip()
     scope = data.get("scope", "all")
+    target_uid = data.get("user_id")
     if not message:
         return jsonify({"ok": False, "error": "Empty message"})
 
     import asyncio
-    target_set = state.active_users if scope == "active" else state.all_users
+    if target_uid is not None:
+        target_set = {int(target_uid)}
+    elif scope == "active":
+        target_set = state.active_users
+    elif scope == "started":
+        target_set = state.started_users
+    else:
+        target_set = state.all_users
+
     sent = 0
     failed = 0
     for uid in target_set:
+        if uid in state.blocked_users:
+            continue
         try:
             asyncio.run(app.bot.send_message(chat_id=uid, text="[Admin]\n" + message))
             sent += 1
         except Exception as e:
             failed += 1
             logger.warning("Dashboard broadcast failed to %d: %s", uid, e)
-    logger.info("Dashboard broadcast: %d/%d users", sent, len(target_set))
+    _log_event("broadcast", f"Broadcast ({scope}) to {sent} users")
     return jsonify({"ok": True, "sent": sent, "failed": failed})
+
+
+@flask_app.route("/api/block-user", methods=["POST"])
+def api_block_user():
+    from flask import request, jsonify, session
+    if not session.get("authenticated"):
+        return jsonify({"ok": False, "error": "Not authenticated"}), 401
+    data = request.get_json() or {}
+    uid = data.get("user_id")
+    action = data.get("action", "block")
+    if uid is None:
+        return jsonify({"ok": False, "error": "Missing user_id"})
+    uid = int(uid)
+    if action == "block":
+        state.blocked_users.add(uid)
+        state.active_users.discard(uid)
+        _log_event("admin", f"User {uid} blocked")
+        return jsonify({"ok": True, "blocked": True})
+    else:
+        state.blocked_users.discard(uid)
+        _log_event("admin", f"User {uid} unblocked")
+        return jsonify({"ok": True, "blocked": False})
+
+
+@flask_app.route("/api/set-model", methods=["POST"])
+def api_set_model():
+    from flask import request, jsonify, session
+    if not session.get("authenticated"):
+        return jsonify({"ok": False, "error": "Not authenticated"}), 401
+    data = request.get_json() or {}
+    uid = data.get("user_id")
+    model_key = data.get("model_key")
+    if uid is None or model_key not in state.MODELS:
+        return jsonify({"ok": False, "error": "Missing user_id or invalid model"})
+    uid = int(uid)
+    state.user_model_keys[uid] = model_key
+    _log_event("admin", f"User {uid} model set to {state.MODELS[model_key]['label']}")
+    return jsonify({"ok": True, "model": state.MODELS[model_key]["label"]})
+
+
+@flask_app.route("/api/clear-user", methods=["POST"])
+def api_clear_user():
+    from flask import request, jsonify, session
+    if not session.get("authenticated"):
+        return jsonify({"ok": False, "error": "Not authenticated"}), 401
+    data = request.get_json() or {}
+    uid = data.get("user_id")
+    if uid is None:
+        return jsonify({"ok": False, "error": "Missing user_id"})
+    uid = int(uid)
+    state.conversation_histories[uid] = []
+    _log_event("admin", f"User {uid} history cleared")
+    return jsonify({"ok": True})
+
+
+@flask_app.route("/api/kick-user", methods=["POST"])
+def api_kick_user():
+    from flask import request, jsonify, session
+    if not session.get("authenticated"):
+        return jsonify({"ok": False, "error": "Not authenticated"}), 401
+    data = request.get_json() or {}
+    uid = data.get("user_id")
+    if uid is None:
+        return jsonify({"ok": False, "error": "Missing user_id"})
+    uid = int(uid)
+    state.active_users.discard(uid)
+    _log_event("admin", f"User {uid} kicked (removed from active)")
+    return jsonify({"ok": True})
+
+
+@flask_app.route("/api/reset-stats", methods=["POST"])
+def api_reset_stats():
+    from flask import request, jsonify, session
+    if not session.get("authenticated"):
+        return jsonify({"ok": False, "error": "Not authenticated"}), 401
+    state.total_messages_received = 0
+    state.errors_count = 0
+    state.system_logs.clear()
+    _log_event("admin", "Stats reset by dashboard")
+    return jsonify({"ok": True})
 
 
 @flask_app.route("/api/health")
